@@ -1,5 +1,5 @@
 // RSD & 含量计算器 — Service Worker
-// v54.334 PWA 离线支持（每次发布 v54.30x 都更新：CACHE_VERSION + PRECACHE_URLS + fallback URL）
+// v54.337 PWA 离线支持（每次发布 v54.30x 都更新：CACHE_VERSION + PRECACHE_URLS + fallback URL）
 //
 // 策略：
 // - HTML / manifest → network-first, fallback to cache（保证更新生效，离线可用）
@@ -7,7 +7,7 @@
 // - Supabase API（*.supabase.co / /rest/v1 / /auth/v1）→ network-only（不缓存认证/数据请求）
 // - 其他跨域资源 → stale-while-revalidate
 
-const CACHE_VERSION = 'v54.334-1';
+const CACHE_VERSION = 'v54.337-1';
 const STATIC_CACHE = `rsd-calc-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `rsd-calc-runtime-${CACHE_VERSION}`;
 
@@ -19,7 +19,7 @@ const PRECACHE_URLS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  './RSD & 含量计算器_流动相版_v54.334.html',
+  './index.html',
   'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js'
@@ -100,7 +100,7 @@ self.addEventListener('fetch', event => {
           }
           return response;
         })
-        .catch(() => caches.match(request).then(c => c || caches.match('./RSD & 含量计算器_流动相版_v54.334.html')))
+        .catch(() => caches.match(request).then(c => c || caches.match('./index.html')))
     );
     return;
   }
