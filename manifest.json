@@ -1,8 +1,8 @@
 {
-  "name": "RSD & 含量计算器 v54.334 - 药学分析专用",
+  "name": "RSD & 含量计算器 v54.337 - 药学分析专用",
   "short_name": "RSD计算器",
   "description": "药品质量分析专用 RSD、含量、回收率、流动相配制计算工具，支持离线使用（PWA）",
-  "start_url": "./RSD & 含量计算器_流动相版_v54.334.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
@@ -46,19 +46,19 @@
     {
       "name": "RSD 统计",
       "short_name": "统计",
-      "url": "./RSD & 含量计算器_流动相版_v54.334.html#page-stats",
+      "url": "./index.html#page-stats",
       "description": "快速进入 RSD/均值/标准差统计计算"
     },
     {
       "name": "含量回收率",
       "short_name": "回收率",
-      "url": "./RSD & 含量计算器_流动相版_v54.334.html#page-recovery",
+      "url": "./index.html#page-recovery",
       "description": "快速进入归一化/外标/内标回收率计算"
     },
     {
       "name": "流动相配制",
       "short_name": "流动相",
-      "url": "./RSD & 含量计算器_流动相版_v54.334.html#page-mobilephase",
+      "url": "./index.html#page-mobilephase",
       "description": "快速进入 HPLC 流动相配方配制"
     }
   ]
