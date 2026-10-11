@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+# v54.216 i18n_browser_tests.json: Chrome DevTools MCP 浏览器 i18n 测试记录
+"""
+v54.216 验证结果（直接通过 chrome-devtools-mcp evaluate 执行）：
+
+测试 1: i18n 函数存在 - PASS
+测试 2: zh 模式当前语言 - PASS (_currentLang = 'zh')
+测试 3: zh 模式 7 个 page 都存在 - PASS (page-stats/recovery/calc/history/special/settings/mobile)
+测试 4: en 模式 zh_fallback = 0 - PASS (49 visible 元素 0 中文 fallback)
+测试 5: en 模式 7 个 page 都存在 - PASS (page-settings 等都正确显示)
+测试 6: 7 个 key 都有 zh/en 翻译 - PASS
+  - btnThemeLight: zh=浅色, en=Light
+  - btnThemeDark: zh=深色, en=Dark
+  - lblMultiInjectAvg: zh=（多次进样取平均值）, en=(Multiple injections, take average)
+  - spCurveTitle: zh=标准曲线（线性回归）, en=Standard Curve (Linear Regression)
+  - toast_switchRecoveryInvalid: zh=switchRecovery 不支持类型..., en=switchRecovery unsupported method...
+  - recipeDupConfirm: zh=检测到同名配方，是否覆盖？, en=Duplicate recipe name detected. Overwrite?
+  - cvNoData: zh=暂无数据, en=No data
+测试 7: data-i18n 元素总数 >= 300 - PASS (351 元素)
+
+总计: 7/7 PASS
+
+测试时间: 2026-09-20 (v54.216)
+"""

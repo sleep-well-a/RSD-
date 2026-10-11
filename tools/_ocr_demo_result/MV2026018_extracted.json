@@ -1,0 +1,120 @@
+{
+  "mv": "2026018",
+  "source_json": "F:\\knowledge-base\\分析方法验证\\_index\\ocr_extract_v3\\MV2026018\\QP-MV2026018-00___碘克沙醇中丙烯酸甲酯_1_2-二氯乙烷和苯乙烯残留分析方法验证方\\QP-MV2026018-00___碘克沙醇中丙烯酸甲酯_1_2-二氯乙烷和苯乙烯残留分析方法验证方.json",
+  "fields": {
+    "instrument": {
+      "value": "Thermo",
+      "pattern": "Instrument\\s*[:：]\\s*(\\S+)"
+    },
+    "method_version": {
+      "value": "1.2.3",
+      "pattern": "Version\\s+([\\d.]+)"
+    },
+    "chromeleon_version": {
+      "value": "Chromeleon(c) Dionex",
+      "pattern": "Chromeleon\\s*\\(c\\)\\s*Dionex"
+    },
+    "injection_volume": {
+      "value": "10",
+      "pattern": "Injection Volume\\s*[:：]?\\s*([\\d.]+)"
+    },
+    "processing_method": {
+      "value": "HPLC-001",
+      "pattern": "Processing Method\\s*[:：]?\\s*([\\w-]+)"
+    },
+    "cas": {
+      "value": "110-54-3",
+      "pattern": "CAS\\s*[:：]?\\s*([\\d-]+)"
+    },
+    "lot_no": {
+      "value": "ABC123",
+      "pattern": "Lot No\\.?\\s*[:：]?\\s*([\\w-]+)"
+    },
+    "formula": {
+      "value": "Weight",
+      "pattern": "Formula\\s*[:：]?\\s*([\\w]+)"
+    },
+    "formula_weight": {
+      "value": "88.11",
+      "pattern": "Formula Weight\\s*[:：]?\\s*([\\d.]+)"
+    },
+    "specification": {
+      "value": "99.9%",
+      "pattern": "Specification\\s*[:：]?\\s*((?:9[0-9]|98|97)\\.?\\d*\\s*"
+    },
+    "inspection_date": {
+      "value": "2026-10-01",
+      "pattern": "Inspection Date\\s*[:：]?\\s*([\\d-]+)"
+    },
+    "reinspection_date": {
+      "value": "2027-10-01",
+      "pattern": "Reinspection Date\\s*[:：]?\\s*([\\d-]+)"
+    },
+    "purity": {
+      "value": "99.85",
+      "pattern": "Purity\\s+\\d+\\.?\\d*\\s+\\d+\\.?\\d*\\s+(\\d+\\.?\\d*)"
+    },
+    "tel": {
+      "value": "021-1234-5678",
+      "pattern": "TEL\\s*[:：]?\\s*(\\d{3,4}-?\\d{3,4}-?\\d{4})"
+    },
+    "email": {
+      "value": "test@lab.com",
+      "pattern": "E-mail\\s*[:：]?\\s*([\\w.-]+@[\\w.-]+)"
+    },
+    "web": {
+      "value": "www.lab.com",
+      "pattern": "WEB\\s*[:：]?\\s*(www\\.[\\w.-]+)"
+    },
+    "instrument_type": {
+      "value": "HPLC",
+      "pattern": "(HPLC|GC|GC-FID|GC-MS|LC-MS|LC-MS/MS)"
+    },
+    "experiment_no": {
+      "value": "EXP-2026-09-001",
+      "pattern": "实验编号\\s*[：:]\\s*((?!供试品|记录|仪器|批号|检测|复核|验证|方案|报告|进样|空"
+    },
+    "sample_batch": {
+      "value": "GS-2026-09-15",
+      "pattern": "供试品批号\\s*[：:]\\s*((?!记录|仪器|批号|实验|方案|报告|空白|日期|复核|签字|人"
+    },
+    "batch_no": {
+      "value": "BT2026-09",
+      "pattern": "批号\\s*[：:]\\s*((?!空白|编号|记录|仪器|方案)[A-Z0-9][A-Z0-9\\-]{"
+    },
+    "detection_date": {
+      "value": "2026-09-15",
+      "pattern": "检测日期\\s*[：:]\\s*(\\d{4}[-./年]\\d{1,2}[-./月]\\d{1,2})"
+    },
+    "tester": {
+      "value": "张三",
+      "pattern": "检测人\\s*[：:]\\s*(\\S+)"
+    },
+    "reviewer": {
+      "value": "李四",
+      "pattern": "复核人\\s*[：:]\\s*([^\\s：:/]{1,30}?)(?=\\s|$|[：:])"
+    },
+    "column_temp": {
+      "value": "30°C",
+      "pattern": "柱温\\s*[：:]\\s*(\\d+(?:\\.\\d+)?°C|\\d+(?:\\.\\d+)?℃)"
+    },
+    "limit_text": {
+      "value": "0.1ppm",
+      "pattern": "限度\\s*[：:]\\s*([\\d.]+\\s*(?:ppm|%|mg))"
+    },
+    "diluent_ocr": {
+      "value": "DMF",
+      "pattern": "(?:Diluent|稀释剂)\\s*[:：]?\\s*([^\\n。]+?(?:DMF|水|MeOH|A"
+    },
+    "flow_rate_ocr": {
+      "value": "1.0 ml/min",
+      "pattern": "(?:Flow Rate|流速)\\s*[:：]?\\s*([\\d.]+\\s*ml/min)"
+    },
+    "injection_volume_ocr": {
+      "value": "10 μL",
+      "pattern": "(?:Injection\\s+Volume|进样量)\\s*[:：]?\\s*(\\d+\\.?\\d*\\s*"
+    }
+  },
+  "field_count": 28,
+  "total_patterns": 50
+}

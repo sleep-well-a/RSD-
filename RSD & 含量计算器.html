@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%A7%AA%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="./manifest.json">
+<title data-i18n="appTitle">RSD & 含量计算器</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+<a class="skip-link" href="#main-content" data-i18n="a11ySkipToContent">Skip to main content</a>
+
+<!-- v54.224 debug-tag: flashEl('debug-tag', ...) 提示的固定位置元素 -->
+<!-- 位置：右下角；样式：浮动小提示；初始 hidden，flashEl 触发时显示 -->
+<div id="debug-tag" style="position:fixed;bottom:20px;right:20px;padding:8px 14px;background:var(--primary);color:#fff;border-radius:6px;font-size:12px;font-weight:600;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.15);opacity:0;transition:opacity 0.2s;pointer-events:none;max-width:300px"></div>
+
+<!-- 迁移弹窗 (rsd-verify checks 12-13) -->
+<div id="migration-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+  <div id="migration-dialog" role="dialog" aria-modal="true" aria-labelledby="migration-title" class="modal-card" style="max-width:420px">
+    <h3 id="migration-title" style="margin:0 0 8px;font-size:16px" data-i18n="lblLocalHistoryFound">检测到本地历史记录</h3>
+    <p style="font-size:13px;color:var(--text-light);margin:0 0 12px" data-i18n="lblMigrateQuestion">您有未上传的本地历史数据，是否迁移到云端？</p>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btn btn-primary btn-sm" onclick="confirmMigration()" data-i18n="btnMigrateNow" data-i18n-aria-label="btnMigrateNow">立即迁移</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeMigrationDialog()" data-i18n="btnLater" data-i18n-aria-label="btnLater">稍后再说</button>
+    </div>
+  </div>
+</div>
+
+<header class="header" id="app-header" data-online="false">
+  <span class="header-title" data-i18n="appTitle">RSD & 含量计算器</span>
+  <span id="sync-status" role="status" aria-live="polite" style="font-size:12px;font-weight:400"></span>
+  <div class="header-actions">
+    <button class="header-btn" id="header-login-btn" onclick="openLoginModal()" title="登录/退出" data-i18n-title="titleLogin" data-tooltip="登录 / 退出" data-i18n-tooltip="tooltipHeaderLogin">🔑 <span id="login-btn-label" data-i18n="btnLogin">登录</span></button>
+    <button class="header-btn" id="header-font-btn" onclick="cycleFontSize()" title="字号切换" data-i18n-title="titleFontSize" data-tooltip="字号：小/中/大" data-i18n-tooltip="tooltipHeaderFontSize">A <span id="font-btn-label" data-i18n="fontBtnMedium">中</span></button>
+    <button class="header-btn" id="header-theme-btn" onclick="toggleTheme()" title="切换主题" data-i18n-title="titleTheme" data-tooltip="切换主题（深/浅）" data-i18n-tooltip="tooltipHeaderTheme">🌙 <span id="theme-btn-label" data-i18n="lblTheme">主题</span></button>
+    <button class="header-btn" id="header-settings-btn" onclick="switchTab('settings')" title="设置" data-i18n-title="titleSettings" data-tooltip="设置 / 数据管理" data-i18n-tooltip="tooltipHeaderSettings" data-i18n-aria-label="titleSettings">⚙️ 设置</button>
+    <!-- v54.108 i18n 语言切换 UI -->
+    <label for="lang-switch" class="visually-hidden" data-i18n="titleSwitchLang">语言切换</label>
+    <select class="header-btn" id="lang-switch" onchange="_setLang(this.value)" title="语言切换" data-i18n-title="titleSwitchLang" aria-label="Language" data-i18n-aria-label="titleSwitchLang" style="cursor:pointer">
+      <option value="zh" data-i18n="lblLanguageZh">中文</option>
+      <option value="en" data-i18n="lblLanguageEn">English</option>
+    </select>
+  </div>
+</header>
+
+<!-- 登录弹窗 -->
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center">
+  <div id="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title" class="modal-card" style="max-width:380px;width:90%">
+    <h3 style="margin:0 0 12px;font-size:16px" id="login-title" data-i18n="btnLogin">登录</h3>
+    <div id="login-form">
+      <div class="mb-10"><label style="font-size:12px" data-i18n="lblEmail" for="login-email">邮箱</label><input type="email" id="login-email" style="font-size:14px;margin-top:2px" placeholder="you@example.com" data-i18n-placeholder="placeholderLoginEmail"></div>
+      <div style="margin-bottom:14px"><label style="font-size:12px" data-i18n="lblPassword" for="login-password">密码</label><input type="password" id="login-password" style="font-size:14px;margin-top:2px" placeholder="••••••" data-i18n-placeholder="placeholderLoginPassword"></div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-primary btn-sm" style="flex:1" onclick="_doLogin()" data-i18n="btnLogin" data-i18n-aria-label="loginLabel">登录</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="_doRegister()" data-i18n="btnRegister" data-i18n-aria-label="btnRegister">注册</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeLoginModal()" data-i18n="cancel" data-i18n-aria-label="btnCancel">取消</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-light);margin-top:10px" id="login-status" role="status" aria-live="polite" data-i18n="lblLoginSubtitle">登录后可在多设备同步历史与设置</div>
+    </div>
+    <div id="login-logged-in" class="hide">
+      <p style="font-size:13px" data-i18n="lblLoggedInAs">已登录为：<strong id="login-email-display"></strong></p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button type="button" class="btn btn-primary btn-sm" onclick="syncAll()" data-i18n="btnSyncNow" data-i18n-aria-label="btnSyncNow">🔄 立即同步</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="_doLogout()" data-i18n="btnLogout" data-i18n-aria-label="btnLogout">退出登录</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeLoginModal()" data-i18n="btnClose" data-i18n-aria-label="btnClose">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义 confirm 弹窗（含 Esc + focus trap） -->
+<div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9996;align-items:center;justify-content:center">
+  <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg" id="confirm-dialog" class="modal-card" style="max-width:420px;width:90%">
+    <div style="font-size:15px;line-height:1.5;margin-bottom:18px" id="confirm-msg"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn btn-outline btn-sm" id="confirm-cancel-btn" data-i18n="cancel" data-i18n-aria-label="btnCancel">取消</button>
+      <button type="button" class="btn btn-primary btn-sm" id="confirm-ok-btn" data-i18n="btnConfirm" data-i18n-aria-label="btnConfirm">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- v54.292 键盘快捷键面板（按 ? 键弹出，Esc 关闭） -->
+<div id="shortcuts-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9995;align-items:center;justify-content:center">
+  <div role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" id="shortcuts-dialog" class="modal-card" style="max-width:480px;width:90%">
+    <h3 id="shortcuts-title" style="margin:0 0 12px;font-size:16px" data-i18n="lblShortcutsTitle">键盘快捷键</h3>
+    <div class="shortcuts-list">
+      <div class="sc-keys"><span class="kbd">?</span></div>
+      <div class="sc-desc" data-i18n="scShowThis">显示此快捷键面板</div>
+      <div class="sc-keys"><span class="kbd">Esc</span></div>
+      <div class="sc-desc" data-i18n="scCloseModal">关闭弹窗 / 取消</div>
+      <div class="sc-keys"><span class="kbd">Tab</span> / <span class="kbd">⇧</span>+<span class="kbd">Tab</span></div>
+      <div class="sc-desc" data-i18n="scNavigate">切换焦点（键盘导航）</div>
+      <div class="sc-keys"><span class="kbd">↵</span> / <span class="kbd">Space</span></div>
+      <div class="sc-desc" data-i18n="scActivate">激活按钮 / 展开卡片</div>
+      <div class="sc-keys"><span class="kbd">←</span> / <span class="kbd">→</span></div>
+      <div class="sc-desc" data-i18n="scSwitchTab">切换主 Tab</div>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-light);text-align:center" data-i18n="scHint">在任何界面按 <span class="kbd">?</span> 重新打开</div>
+  </div>
+</div>
+
+<main id="main-content">
+
+<div class="tabs" role="tablist" data-i18n-aria-label="ariaTablistMain" aria-label="Main tabs">
+  <button type="button" class="tab active" id="tl0-tab-0" role="tab" aria-selected="true" aria-controls="page-stats" tabindex="0" onclick="switchTab('stats')" data-i18n="tabStats">统计</button>
+  <button type="button" class="tab" id="tl0-tab-1" role="tab" aria-selected="false" aria-controls="page-recovery" tabindex="-1" onclick="switchTab('recovery')" data-i18n="tabRecovery">回收率</button>
+  <button type="button" class="tab" id="tl0-tab-2" role="tab" aria-selected="false" aria-controls="page-special" tabindex="-1" onclick="switchTab('special')" data-i18n="tabSpecial">专项</button>
+  <button type="button" class="tab" id="tl0-tab-3" role="tab" aria-selected="false" aria-controls="page-calc" tabindex="-1" onclick="switchTab('calc')" data-i18n="tabCalc">计算器</button>
+  <button type="button" class="tab" id="tl0-tab-4" role="tab" aria-selected="false" aria-controls="page-history" tabindex="-1" onclick="switchTab('history')" data-i18n="tabHistory">历史</button>
+  <button type="button" class="tab" id="tl0-tab-5" role="tab" aria-selected="false" aria-controls="page-mobile" tabindex="-1" onclick="switchTab('mobile')" data-i18n="tabMobile">流动相</button>
+  <button type="button" class="tab" id="tl0-tab-6" role="tab" aria-selected="false" aria-controls="page-settings" tabindex="-1" onclick="switchTab('settings')" data-i18n="tabSettings">设置</button>
+</div>
+
+<!-- ==================== PAGE 1: RSD ==================== -->
+<div id="page-stats" role="tabpanel" aria-labelledby="tl0-tab-0" class="page active">
+  <div class="card">
+    <div class="card-title" data-i18n="lblDataInput">数据输入 <button class="btn btn-danger btn-xs ml-8" onclick="clearStats()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+    <div id="data-rows"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="addRow()" data-i18n="btnAddRow" data-i18n-aria-label="titleAddRow">+ 添加行</button>
+      <button class="btn btn-outline btn-sm" onclick="pasteMulti()" data-i18n="btnPasteBatch" data-i18n-aria-label="btnPasteBatch">粘贴批量</button>
+      <button class="btn btn-primary btn-sm" onclick="saveStatsHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button>
+      <button class="btn btn-outline btn-sm" onclick="clearStats()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+    </div>
+  </div>
+  <div class="result-box" id="stats-result">
+    <div class="result-item"><div class="label" data-i18n="lblMean">平均值</div><div class="value is-empty" id="res-mean">—</div></div>
+    <div class="result-item"><div class="label">SD</div><div class="value is-empty" id="res-sd">—</div></div>
+    <div class="result-item"><div class="label">RSD (%)</div><div class="value is-empty" id="res-rsd">—</div></div>
+  </div>
+  <div style="text-align:center;font-size:13px;color:var(--text);font-weight:600;margin-top:4px" data-i18n="lblDataCount">数据个数：<span id="res-n" style="font-weight:700">0</span></div>
+</div>
+
+<!-- ==================== PAGE 3: 回收率 ==================== -->
+<div id="page-recovery" role="tabpanel" aria-labelledby="tl0-tab-1" class="page">
+
+  <div class="subtabs" role="tablist" data-i18n-aria-label="ariaTablistRecovery" aria-label="Recovery method">
+    <button type="button" class="subtab active" id="st0-tab-0" role="tab" aria-selected="true" aria-controls="rec-normalize" tabindex="0" onclick="switchRecovery('normalize')" data-i18n="subtabRecoveryArea">面积归一化法</button>
+    <button type="button" class="subtab" id="st0-tab-1" role="tab" aria-selected="false" aria-controls="rec-external" tabindex="-1" onclick="switchRecovery('external')" data-i18n="subtabExtStd">外标法</button>
+    <button type="button" class="subtab" id="st0-tab-2" role="tab" aria-selected="false" aria-controls="rec-internal" tabindex="-1" onclick="switchRecovery('internal')" data-i18n="subtabIntStd">内标法</button>
+    <button type="button" class="subtab" id="st0-tab-3" role="tab" aria-selected="false" aria-controls="rec-simple" tabindex="-1" onclick="switchRecovery('simple')" data-i18n="subtabSimple">简易回收率</button>
+  </div>
+
+  <!-- === 面积归一化法 === -->
+  <div id="rec-normalize" role="tabpanel" aria-labelledby="st0-tab-0" class="rec-method">
+    <!-- 卡片1: 对照品参数 -->
+    <div class="card">
+      <div class="card-title" data-i18n="lblReferenceStdParams">对照品（标准品）参数 <button class="btn btn-danger btn-xs ml-8" onclick="clearNormStd()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div class="half">
+        <div><label data-i18n="lbl-sample-weight" for="norm-std-weight">称样量 (mg)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-std-weight" placeholder="0" oninput="calcNormalize()"></div>
+        <div><label data-i18n="lblPurity" for="norm-std-purity">纯度 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-std-purity" placeholder="100" value="100" oninput="calcNormalize()"></div>
+        <div><label data-i18n="lbl-dilution-vol" for="norm-std-dilution">稀释体积 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-std-dilution" placeholder="0" oninput="calcNormalize()"></div>
+      </div>
+      <div class="half" style="margin-top:6px">
+        <div><label data-i18n="lblMoistureOrDrying" for="norm-std-moisture">水分/干失 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-std-moisture" placeholder="0" value="0" oninput="calcNormalize()"></div>
+        <div><label data-i18n="lbl-residue-pct" for="norm-std-residue">炽灼残渣 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-std-residue" placeholder="0" value="0" oninput="calcNormalize()"></div>
+      </div>
+    </div>
+
+    <!-- 卡片2: 对照峰面积百分占比 -->
+    <div class="card">
+      <div class="card-title" data-i18n="lblRefPeakAreaStd">对照品峰面积百分占比 <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="lblMultiInjectAvg">（多次进样取平均值）</span> <button class="btn btn-danger btn-xs ml-8" onclick="clearNormStdAreas()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <table class="matrix-table">
+        <thead><tr><th scope="col" data-i18n="th-seq">序号</th><th scope="col" data-i18n="lblPeakAreaPct">峰面积百分占比 (%)</th><th scope="col"></th></tr></thead>
+        <tbody id="norm-std-area-rows">
+          <tr><td>1</td><td><input type="text" autocomplete="off" inputmode="decimal" class="norm-std-area-pct" placeholder="0" oninput="calcNormalize()" aria-label="峰面积%" data-i18n-aria-label="lblPeakAreaPct"></td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeNormStdAreaRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+          <tr><td>2</td><td><input type="text" autocomplete="off" inputmode="decimal" class="norm-std-area-pct" placeholder="0" oninput="calcNormalize()" aria-label="峰面积%" data-i18n-aria-label="lblPeakAreaPct"></td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeNormStdAreaRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <button class="btn btn-outline btn-sm" onclick="addNormStdAreaRow()" data-i18n="btnAddInjection" data-i18n-aria-label="titleAddInjection">+ 添加进样</button>
+        <span style="font-size:13px;color:var(--primary);font-weight:700" data-i18n="tplMeanPrefix">平均值: <span id="norm-std-area-avg">—</span>%</span>
+      </div>
+    </div>
+
+    <!-- 卡片3: 校正因子 -->
+    <div class="card">
+      <div class="card-title" data-i18n="lblCorrFactor">校正因子 <button class="btn btn-danger btn-xs ml-8" onclick="clearNormFactor()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div class="section-label" data-i18n="sectionLabelLinRegress">线性回归（使用一个对照组分多浓度点拟合 y=ax+b）</div>
+      <table class="matrix-table">
+        <thead><tr><th scope="col" data-i18n="lblConcentration">浓度 (mg/mL)</th><th scope="col" data-i18n="thPeakArea">峰面积</th><th scope="col"></th></tr></thead>
+        <tbody id="norm-regress-rows">
+          <tr><td><input type="text" autocomplete="off" inputmode="decimal" class="norm-reg-conc" placeholder="0" oninput="calcNormalize()" aria-label="浓度 (mg/mL)" data-i18n-aria-label="lblConcentration"></td><td><input type="text" autocomplete="off" inputmode="decimal" class="norm-reg-area" placeholder="0" oninput="calcNormalize()" aria-label="峰面积" data-i18n-aria-label="thPeakArea"></td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeNormRegressRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+        </tbody>
+      </table>
+      <button class="btn btn-outline btn-sm" onclick="addNormRegressRow()" data-i18n="btnAddPoint" data-i18n-aria-label="titleAddPoint">+ 添加点</button>
+      <div class="regression-result hide" id="norm-regress-result">
+        <span data-i18n="lblRegressionEq">回归方程:</span> <span>y = <span id="norm-rg-a">—</span>x + <span id="norm-rg-b">—</span></span> r = <span id="norm-rg-r">—</span> | <span data-i18n="lblCorrFactorLine">校正因子</span> f = <span id="norm-f-display">—</span>
+      </div>
+      <div class="section-label" data-i18n="sectionLabelManualCorr">手动校正因子（留空则使用回归斜率）</div>
+      <div class="half">
+        <div><label data-i18n="lblManualCorrF" for="norm-manual-f">手动校正因子 f</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-manual-f" placeholder="留空=自动" data-i18n-placeholder="placeholderManualF" oninput="calcNormalize()"></div>
+      </div>
+    </div>
+
+    <!-- 卡片4: 样品列表 -->
+    <div class="card" id="norm-spl-card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px" data-i18n="lblSampleList">
+        样品列表
+        <button type="button" class="hide-toggle" onclick="toggleHideInputs('norm-spl-card')" style="margin-left:auto;margin-right:8px" data-i18n="btnHideInput" aria-expanded="true">隐藏输入 ↓</button>
+        <label style="display:flex;align-items:center;font-weight:400;font-size:12px;gap:4px;cursor:pointer">
+          <input type="checkbox" class="auto-hide-cb" onchange="calcNormalize()" data-i18n="autoHide">自动隐藏
+        </label>
+        <label style="display:flex;align-items:center;font-weight:400;font-size:12px;gap:4px;cursor:pointer">
+          <input type="checkbox" id="norm-spl-independent" onchange="toggleNormSplMode()" data-i18n="lblIndepSampleParams">各样品独立称量参数
+        </label>
+      </div>
+
+      <!-- 共享模式：称量参数 -->
+      <div id="norm-spl-shared-params">
+        <div class="section-label" data-i18n="sectionLabelSharedWeight">称量参数（所有样品共用）</div>
+        <div class="half">
+          <div><label data-i18n="lbl-sample-weight" for="norm-spl-weight">称样量 (mg)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-spl-weight" placeholder="0" oninput="calcNormalize()"></div>
+          <div><label data-i18n="lbl-dilution-vol" for="norm-spl-dilution">稀释体积 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-spl-dilution" placeholder="0" oninput="calcNormalize()"></div>
+        </div>
+        <div class="half" style="margin-top:6px">
+          <div><label data-i18n="lblMoistureOrDrying" for="norm-spl-moisture">水分/干失 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-spl-moisture" placeholder="0" value="0" oninput="calcNormalize()"></div>
+          <div><label data-i18n="lbl-residue-pct" for="norm-spl-residue">炽灼残渣 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="norm-spl-residue" placeholder="0" value="0" oninput="calcNormalize()"></div>
+        </div>
+        <div class="section-label" data-i18n="sectionLabelAreaPcts">样品峰面积百分占比</div>
+      </div>
+
+      <table class="matrix-table">
+        <th scope="col"ead id="norm-spl-thead-shared">
+          <tr><th scope="col" data-i18n="th-seq">序号</th><th scope="col" data-i18n="lblSampleWeightNoSpace">称样量(mg)</th><th scope="col" data-i18n="lblDilutionVol">稀释体积(mL)</th><th scope="col" data-i18n="lblPeakAreaPct">峰面积%</th><th scope="col" data-i18n="recoveryPercent">回收率%</th><th scope="col" data-i18n="th-op">操作</th></tr>
+        </thead>
+        <th scope="col"ead id="norm-spl-thead-independent" class="hide">
+          <tr><th scope="col" data-i18n="th-seq">序号</th><th scope="col" data-i18n="lbl-sample-weight">称样量 (mg)</th><th scope="col" data-i18n="lbl-dilution-vol">稀释体积 (mL)</th><th scope="col" data-i18n="lbl-moisture-pct">水分 (%)</th><th scope="col" data-i18n="lblResidue">残渣 (%)</th><th scope="col" data-i18n="lblPeakAreaPct">峰面积%</th><th scope="col" data-i18n="recoveryPercent">回收率%</th><th scope="col" data-i18n="th-op">操作</th></tr>
+        </thead>
+        <tbody id="norm-spl-rows">
+          <tr class="norm-spl-shared">
+            <td>1</td>
+            <td><input type="text" autocomplete="off" inputmode="decimal" class="norm-spl-weight" placeholder="0" oninput="calcNormalize()" aria-label="称样量(mg)" data-i18n-aria-label="lblSampleWeightNoSpace"></td>
+            <td><input type="text" autocomplete="off" inputmode="decimal" class="norm-spl-dilution" placeholder="0" oninput="calcNormalize()" aria-label="稀释体积 (mL)" data-i18n-aria-label="lblDilutionVol"></td>
+            <td><input type="text" autocomplete="off" inputmode="decimal" class="norm-spl-area-pct" placeholder="0" oninput="calcNormalize()" aria-label="峰面积%" data-i18n-aria-label="lblPeakAreaPct"></td>
+            <td class="result-col">—</td>
+            <td><button class="btn btn-outline btn-xs" onclick="copyRowData(this)" data-i18n="btn-copy" data-i18n-aria-label="btnCopy">📋复制</button><button class="btn btn-outline btn-xs" onclick="pasteRowData(this)" data-i18n="btn-paste" data-i18n-aria-label="titlePaste">📄粘贴</button><button type="button" class="btn btn-danger btn-xs" onclick="removeNormSampleRow(this)" aria-label="删除本样品" data-i18n-aria-label="ariaRemoveSample">-</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="btn btn-outline btn-sm" onclick="addNormSampleRow()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+      <button class="btn btn-outline btn-sm ml-4" onclick="batchPaste('norm-spl-rows', calcNormalize, (document.getElementById('norm-spl-independent').checked?'norm-independent':'norm-shared'))" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+    </div>
+
+    <!-- 结果 -->
+    <div id="norm-results"></div>
+    <div class="result-box hide" id="norm-stats">
+      <div class="result-item"><div class="label" data-i18n="lbl-avg-recovery">平均回收率</div><div class="value" id="nrec-mean">—</div><div class="unit">%</div></div>
+      <div class="result-item"><div class="label">SD</div><div class="value" id="nrec-sd">—</div></div>
+      <div class="result-item"><div class="label">RSD</div><div class="value" id="nrec-rsd">—</div><div class="unit">%</div></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveRecoveryHistory('normalize')" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button>
+      <button class="btn btn-outline btn-sm" onclick="clearNormalize()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+    </div>
+  </div>
+
+  <!-- === 外标法 === -->
+  <div id="rec-external" role="tabpanel" aria-labelledby="st0-tab-1" class="rec-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="lblReferenceParams">对照品参数 <button class="btn btn-danger btn-xs ml-8" onclick="clearExtStd()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div class="half">
+        <div><label data-i18n="th-peak-area" for="ext-std-area">峰面积</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-area" placeholder="0" oninput="calcExternal()"></div>
+        <div><label data-i18n="lbl-sample-weight" for="ext-std-weight">称样量 (mg)</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-weight" placeholder="0" oninput="calcExternal()"></div>
+        <div><label data-i18n="lblPurity" for="ext-std-purity">纯度 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-purity" placeholder="100" value="100" oninput="calcExternal()"></div>
+        <div><label data-i18n="lbl-dilution-vol" for="ext-std-dilution">稀释体积 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-dilution" placeholder="0" oninput="calcExternal()"></div>
+      </div>
+      <div class="section-label" data-i18n="sectionLabelDryingAdjust">干燥品折算</div>
+      <div class="half">
+        <div><label data-i18n="lblMoisturePct" for="ext-std-moisture">水分 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-moisture" placeholder="0" value="0" oninput="calcExternal()"></div>
+        <div><label data-i18n="lbl-residue-pct" for="ext-std-residue">炽灼残渣 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="ext-std-residue" placeholder="0" value="0" oninput="calcExternal()"></div>
+      </div>
+    </div>
+
+    <div class="card" id="ext-spl-card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <span data-i18n="cardTitleSampleListExt">样品列表</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintMultiParallelIndep">（多份平行样，每份有独立理论值）</span>
+        <button type="button" class="hide-toggle" onclick="toggleHideInputs('ext-spl-card')" style="margin-left:auto;margin-right:8px" data-i18n="btnHideInput" aria-expanded="true">隐藏输入 ↓</button>
+        <label style="display:flex;align-items:center;font-weight:400;font-size:12px;gap:4px;cursor:pointer">
+          <input type="checkbox" class="auto-hide-cb" onchange="calcExternal()" data-i18n="autoHide">自动隐藏
+        </label>
+      </div>
+      <div id="ext-sample-rows"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addExtSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-outline btn-sm" onclick="batchPaste('ext-sample-rows', calcExternal, 'ext')" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+        <button class="btn btn-primary btn-sm" onclick="saveRecoveryHistory('external')" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button>
+        <button class="btn btn-outline btn-sm" onclick="clearExternal()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+    </div>
+
+    <div id="ext-results"></div>
+    <div class="result-box hide" id="ext-stats">
+      <div class="result-item"><div class="label" data-i18n="lbl-avg-recovery">平均回收率</div><div class="value" id="erec-mean">—</div><div class="unit">%</div></div>
+      <div class="result-item"><div class="label">SD</div><div class="value" id="erec-sd">—</div></div>
+      <div class="result-item"><div class="label">RSD</div><div class="value" id="erec-rsd">—</div><div class="unit">%</div></div>
+    </div>
+  </div>
+
+  <!-- === 内标法 === -->
+  <div id="rec-internal" role="tabpanel" aria-labelledby="st0-tab-2" class="rec-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="lblReferenceWithIS">对照品（含内标） <button class="btn btn-danger btn-xs ml-8" onclick="clearIntStd()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div class="half">
+        <div><label data-i18n="lblReferencePeakArea" for="int-std-area">对照品峰面积</label><input type="text" autocomplete="off" inputmode="decimal" id="int-std-area" placeholder="0" oninput="calcInternal()"></div>
+        <div><label data-i18n="lbl-is-peak-area" for="int-std-is-area">内标峰面积</label><input type="text" autocomplete="off" inputmode="decimal" id="int-std-is-area" placeholder="0" oninput="calcInternal()"></div>
+        <div><label data-i18n="lblConcentration" for="int-std-conc">浓度 (mg/mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="int-std-conc" placeholder="0" oninput="calcInternal()"></div>
+      </div>
+    </div>
+
+    <div class="card" id="int-spl-card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <span data-i18n="cardTitleSampleListInt">样品列表</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintMultiParallelInternal">（多份平行样，含内标）</span>
+        <button type="button" class="hide-toggle" onclick="toggleHideInputs('int-spl-card')" style="margin-left:auto;margin-right:8px" data-i18n="btnHideInput" aria-expanded="true">隐藏输入 ↓</button>
+        <label style="display:flex;align-items:center;font-weight:400;font-size:12px;gap:4px;cursor:pointer">
+          <input type="checkbox" class="auto-hide-cb" onchange="calcInternal()" data-i18n="autoHide">自动隐藏
+        </label>
+      </div>
+      <div id="int-sample-rows"></div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addIntSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-outline btn-sm" onclick="batchPaste('int-sample-rows', calcInternal, 'int')" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+        <button class="btn btn-primary btn-sm" onclick="saveRecoveryHistory('internal')" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button>
+        <button class="btn btn-outline btn-sm" onclick="clearInternal()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+    </div>
+
+    <div id="int-results"></div>
+    <div class="result-box hide" id="int-stats">
+      <div class="result-item"><div class="label" data-i18n="lbl-avg-recovery">平均回收率</div><div class="value" id="irec-mean">—</div><div class="unit">%</div></div>
+      <div class="result-item"><div class="label">SD</div><div class="value" id="irec-sd">—</div></div>
+      <div class="result-item"><div class="label">RSD</div><div class="value" id="irec-rsd">—</div><div class="unit">%</div></div>
+    </div>
+  </div>
+
+  <!-- === 简易回收率 === -->
+  <div id="rec-simple" role="tabpanel" aria-labelledby="st0-tab-3" class="rec-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleSimpleRec">简易回收率计算</div>
+      <div class="half">
+        <div><label data-i18n="lbl-theory-content-pct" for="simple-theory">理论含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="simple-theory" placeholder="100" value="100" oninput="calcSimple()"></div>
+        <div><label data-i18n="lblActualContentPct" for="simple-measured">实测含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="simple-measured" placeholder="0" oninput="calcSimple()"></div>
+      </div>
+    </div>
+    <div class="result-box hide" id="simple-result">
+      <div class="result-item"><div class="label" data-i18n="lblTheory">理论含量</div><div class="value" id="sres-theory">—</div><div class="unit">%</div></div>
+      <div class="result-item"><div class="label" data-i18n="lblMeasured">实测含量</div><div class="value" id="sres-measured">—</div><div class="unit">%</div></div>
+      <div class="result-item"><div class="label" data-i18n="lblRecovery">回收率</div><div class="value" id="sres-rec">—</div><div class="unit">%</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-sm" onclick="saveRecoveryHistory('simple')" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportSimpleCSV()" data-i18n-aria-label="titleDownloadRecoveryCSV" data-i18n-title="titleDownloadRecoveryCSV" title="下载回收率为 CSV 文件">📊 CSV</button>
+      <button class="btn btn-outline btn-sm" onclick="clearSimple()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PAGE 4: 计算器 ==================== -->
+<div id="page-calc" role="tabpanel" aria-labelledby="tl0-tab-3" class="page">
+  <div class="card">
+    <div class="calc-display" id="calc-display" aria-live="polite" aria-atomic="true" role="status"></div>
+    <input type="text" autocomplete="off" id="calc-input" placeholder="输入算式，如 2+3*4 或 sin(30)" data-i18n-placeholder="placeholderCalcInput" data-i18n-aria-label="titleCalcInput" style="font-size:18px;text-align:right;margin-bottom:8px" onkeydown="if(event.key==='Enter')calcEval()" aria-label="计算器输入框">
+    <div class="calc-keypad" id="calc-keypad">
+      <!-- 第1页：基本函数 -->
+      <div class="calc-keypad-page1">
+        <button class="calc-key" style="color:#b91c1c;font-weight:700" onclick="calcClear()" aria-label="C" data-i18n-aria-label="ariaCalcClear">C</button>
+        <button class="calc-key op" onclick="calcBack()" aria-label="Backspace" data-i18n-aria-label="ariaCalcBackspace">⌫</button>
+        <button class="calc-key fn" onclick="calcInsert('(')" aria-label="Open Parenthesis" data-i18n-aria-label="ariaCalcOpenParen">(</button>
+        <button class="calc-key fn" onclick="calcInsert(')')" aria-label="Close Parenthesis" data-i18n-aria-label="ariaCalcCloseParen">)</button>
+        <button class="calc-key fn" onclick="calcInsert('sin(')" aria-label="sin" data-i18n-aria-label="ariaCalcSin">sin</button>
+        <button class="calc-key fn" onclick="calcInsert('cos(')" aria-label="cos" data-i18n-aria-label="ariaCalcCos">cos</button>
+        <button class="calc-key fn" onclick="calcInsert('tan(')" aria-label="tan" data-i18n-aria-label="ariaCalcTan">tan</button>
+        <button class="calc-key op" onclick="calcInsert('/')" aria-label="Divide" data-i18n-aria-label="ariaCalcDivide">/</button>
+        <button class="calc-key fn" onclick="calcInsert('log(')" aria-label="log" data-i18n-aria-label="ariaCalcLog">log</button>
+        <button class="calc-key fn" onclick="calcInsert('ln(')" aria-label="ln" data-i18n-aria-label="ariaCalcLn">ln</button>
+        <button class="calc-key fn" onclick="calcInsert('sqrt(')" aria-label="Square Root" data-i18n-aria-label="ariaCalcSqrt">√</button>
+        <button class="calc-key op" onclick="calcInsert('*')" aria-label="Multiply" data-i18n-aria-label="ariaCalcMultiply">×</button>
+        <button class="calc-key fn" onclick="calcInsert('**(')" aria-label="xⁿ" data-i18n-aria-label="ariaCalcPowN">xⁿ</button>
+        <button class="calc-key fn" onclick="calcInsert('Math.PI')" aria-label="π" data-i18n-aria-label="ariaCalcPi">π</button>
+        <button class="calc-key fn" onclick="calcInsert('Math.E')" aria-label="e" data-i18n-aria-label="ariaCalcE">e</button>
+        <button type="button" class="calc-key op" onclick="calcInsert('-')" aria-label="减号" data-i18n-aria-label="ariaCalcMinus">-</button>
+        <button class="calc-key" onclick="calcInsert('7')" aria-label="7">7</button>
+        <button class="calc-key" onclick="calcInsert('8')" aria-label="8">8</button>
+        <button class="calc-key" onclick="calcInsert('9')" aria-label="9">9</button>
+        <button class="calc-key op" onclick="calcInsert('+')" aria-label="Add" data-i18n-aria-label="ariaCalcAdd">+</button>
+        <button class="calc-key" onclick="calcInsert('4')" aria-label="4">4</button>
+        <button class="calc-key" onclick="calcInsert('5')" aria-label="5">5</button>
+        <button class="calc-key" onclick="calcInsert('6')" aria-label="6">6</button>
+        <button class="calc-key op" onclick="calcInsert('^')" aria-label="Power" data-i18n-aria-label="ariaCalcPower">^</button>
+        <button class="calc-key" onclick="calcInsert('1')" aria-label="1">1</button>
+        <button class="calc-key" onclick="calcInsert('2')" aria-label="2">2</button>
+        <button class="calc-key" onclick="calcInsert('3')" aria-label="3">3</button>
+        <button class="calc-key toggle-key" onclick="calcTogglePage()" aria-label="Fn" data-i18n-aria-label="ariaCalcFnToggle">Fn</button>
+        <button class="calc-key" onclick="calcInsert('0')" aria-label="0">0</button>
+        <button class="calc-key" onclick="calcInsert('.')" aria-label="Decimal Point" data-i18n-aria-label="ariaCalcDecimalPoint">.</button>
+        <button class="calc-key" style="background:var(--primary);color:#fff" onclick="calcEval()" aria-label="Equals" data-i18n-aria-label="ariaCalcEquals">=</button>
+      </div>
+      <!-- 第2页：高级函数 -->
+      <div class="calc-keypad-page2">
+        <button class="calc-key" style="color:#b91c1c;font-weight:700" onclick="calcClear()" aria-label="C" data-i18n-aria-label="ariaCalcClear">C</button>
+        <button class="calc-key op" onclick="calcBack()" aria-label="Backspace" data-i18n-aria-label="ariaCalcBackspace">⌫</button>
+        <button class="calc-key fn2" onclick="calcInsert('round(')" aria-label="round" data-i18n-aria-label="ariaCalcRound">round</button>
+        <button class="calc-key fn2" onclick="calcInsert('abs(')" aria-label="abs" data-i18n-aria-label="ariaCalcAbs">abs</button>
+        <button class="calc-key fn" onclick="calcInsert('asin(')" aria-label="asin" data-i18n-aria-label="ariaCalcAsin">asin</button>
+        <button class="calc-key fn" onclick="calcInsert('acos(')" aria-label="acos" data-i18n-aria-label="ariaCalcAcos">acos</button>
+        <button class="calc-key fn" onclick="calcInsert('atan(')" aria-label="atan" data-i18n-aria-label="ariaCalcAtan">atan</button>
+        <button class="calc-key op" onclick="calcInsert('/')" aria-label="Divide" data-i18n-aria-label="ariaCalcDivide">/</button>
+        <button class="calc-key fn" onclick="calcInsert('log2(')" aria-label="log₂" data-i18n-aria-label="ariaCalcLog2">log₂</button>
+        <button class="calc-key fn" onclick="calcInsert('exp(')" aria-label="exp" data-i18n-aria-label="ariaCalcExp">exp</button>
+        <button class="calc-key fn" onclick="calcInsert('10^(')" aria-label="10ˣ" data-i18n-aria-label="ariaCalc10x">10ˣ</button>
+        <button class="calc-key op" onclick="calcInsert('*')" aria-label="Multiply" data-i18n-aria-label="ariaCalcMultiply">×</button>
+        <button class="calc-key fn2" onclick="calcInsert('fact(')" aria-label="n" data-i18n-aria-label="ariaCalcFact">n!</button>
+        <button class="calc-key fn2" onclick="calcInsert('floor(')" aria-label="floor" data-i18n-aria-label="ariaCalcFloor">floor</button>
+        <button class="calc-key fn2" onclick="calcInsert('ceil(')" aria-label="ceil" data-i18n-aria-label="ariaCalcCeil">ceil</button>
+        <button type="button" class="calc-key op" onclick="calcInsert('-')" aria-label="减号" data-i18n-aria-label="ariaCalcMinus">-</button>
+        <button class="calc-key" onclick="calcInsert('7')" aria-label="7">7</button>
+        <button class="calc-key" onclick="calcInsert('8')" aria-label="8">8</button>
+        <button class="calc-key" onclick="calcInsert('9')" aria-label="9">9</button>
+        <button class="calc-key op" onclick="calcInsert('+')" aria-label="Add" data-i18n-aria-label="ariaCalcAdd">+</button>
+        <button class="calc-key" onclick="calcInsert('4')" aria-label="4">4</button>
+        <button class="calc-key" onclick="calcInsert('5')" aria-label="5">5</button>
+        <button class="calc-key" onclick="calcInsert('6')" aria-label="6">6</button>
+        <button class="calc-key op" onclick="calcInsert('^')" aria-label="Power" data-i18n-aria-label="ariaCalcPower">^</button>
+        <button class="calc-key" onclick="calcInsert('1')" aria-label="1">1</button>
+        <button class="calc-key" onclick="calcInsert('2')" aria-label="2">2</button>
+        <button class="calc-key" onclick="calcInsert('3')" aria-label="3">3</button>
+        <button class="calc-key toggle-key" onclick="calcTogglePage()" aria-label="Fn" data-i18n-aria-label="ariaCalcFnToggle">Fn</button>
+        <button class="calc-key" onclick="calcInsert('0')" aria-label="0">0</button>
+        <button class="calc-key" onclick="calcInsert('.')" aria-label="Decimal Point" data-i18n-aria-label="ariaCalcDecimalPoint">.</button>
+        <button class="calc-key" style="background:var(--primary);color:#fff" onclick="calcEval()" aria-label="Equals" data-i18n-aria-label="ariaCalcEquals">=</button>
+      </div>
+    </div>
+    <div class="calc-page-indicator" id="calc-page-indicator">基本函数 | 按 <b>Fn</b> 切换高级函数</div>
+    <div class="btn-row mt-4">
+      <button class="btn btn-outline btn-sm" onclick="calcClearHistory()" data-i18n="btnClearHistory" data-i18n-aria-label="titleClearHistory">清空历史</button>
+    </div>
+    <div class="calc-history" id="calc-history"></div>
+  </div>
+</div>
+
+<!-- ==================== PAGE 5: 历史记录 ==================== -->
+<div id="page-history" role="tabpanel" aria-labelledby="tl0-tab-4" class="page">
+  <div class="card hide" id="trend-chart-card">
+    <div class="card-title"><span data-i18n="cardTitleTrendChart">数据趋势图</span> <button class="btn btn-outline btn-xs ml-8" onclick="toggleChartType()" id="toggle-chart-btn" data-i18n="btnToggleChartInit" data-i18n-aria-label="titleToggleLineBar" aria-pressed="false">切换折线/柱状</button><button class="btn btn-outline btn-xs ml-4" onclick="_toggleThresholdLines()" id="toggle-threshold-btn" title="切换合规边界（含量 95-105% / 回收率 98-102% / RSD 2%）" data-i18n-title="titleLimitBoundary" data-i18n="btnThresholdOn" data-i18n-aria-label="titleLimitBoundaryOn" aria-pressed="true">合规边界: 开</button><button class="btn btn-outline btn-xs ml-4" onclick="_toggleTrendLines()" id="toggle-trend-btn" title="切换每条 dataset 的线性回归趋势线（slope 表示趋势方向 + 强度）" data-i18n-title="titleTrendToggle" data-i18n="btnTrendOn" data-i18n-aria-label="titleTrendLineOn" aria-pressed="true">趋势线: 开</button></div>
+    <div class="chart-filter-bar" id="chart-filter-bar"></div>
+    <div class="chart-container">
+      <canvas id="trend-canvas" role="img" data-i18n-aria-label="titleChartFilter"></canvas>
+      <div class="chart-empty hide" id="chart-empty" data-i18n="emptyChart">暂无数据</div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:4px" id="chart-legend"></div>
+  </div>
+  <div class="cache-info">已保存 <span id="history-count">0</span> / 500 条记录</div>
+  <!-- v54.81 当前样品覆盖输入：填入则优先注入到每条 entry._meta.sampleId / batch（覆盖 settings 全局） -->
+  <div class="card" id="current-sample-card" style="background:#f0f9ff;border:1.5px dashed var(--primary-light);padding:8px 10px;margin-bottom:8px">
+    <div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:4px" data-i18n="lblCurrentSampleOverride">📦 当前样品（覆盖 settings；留空则用全局 meta）</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:12px;color:#334155" data-i18n="placeholderSampleId">样品 ID <input type="text" autocomplete="off" id="current-sample-id" placeholder="覆盖 settings-sample-id" data-i18n-placeholder="placeholderSampleIdOverride" style="width:160px;font-size:13px" aria-label="样品 ID" data-i18n-aria-label="placeholderSampleId"></label>
+      <label style="font-size:12px;color:#334155" data-i18n="placeholderBatch">批号 <input type="text" autocomplete="off" id="current-batch" placeholder="覆盖 settings-batch" data-i18n-placeholder="placeholderBatchOverride" style="width:160px;font-size:13px" aria-label="批号" data-i18n-aria-label="placeholderBatch"></label>
+      <button class="btn btn-outline btn-xs" onclick="document.getElementById('current-sample-id').value='';document.getElementById('current-batch').value='';" data-i18n="btnClearOverride" data-i18n-aria-label="btnClearOverride">清空覆盖</button>
+    </div>
+  </div>
+  <div style="text-align:center;margin-bottom:12px">
+    <button class="btn btn-danger btn-sm" onclick="clearHistory()" data-i18n="btnClearAll" data-i18n-aria-label="btnClearAll">清空全部</button><button class="btn btn-primary btn-sm" onclick="exportComprehensiveReport();" style="background:#0e7490;color:#fff;border-color:#0e7490;margin-left:4px;" title="Generate QR-MV6013 comprehensive PDF" aria-label="CV Report PDF">CV Report (PDF)</button><button class="btn btn-outline btn-sm ml-4" onclick="exportComprehensiveMarkdown();" title="复制 Markdown 到剪贴板 + 下载 .md 文件" data-i18n-title="titleCopyMd" aria-label="CV Markdown">📋 CV Markdown</button><button class="btn btn-outline btn-sm ml-4" onclick="exportComprehensiveHtmlEmail();" title="HTML 邮件格式（内联样式+Gmail/Outlook 兼容）+ 下载 .html 文件" data-i18n-title="titleCopyHtml" aria-label="CV Email">📧 CV Email</button><button class="btn btn-outline btn-sm ml-4" onclick="exportComprehensiveJson();" title="JSON Schema 结构化导出（便于 LIMS 对接）" data-i18n-title="titleCopyJson" aria-label="CV JSON">🔧 CV JSON</button><button class="btn btn-outline btn-sm ml-4" onclick="exportComprehensiveIcal();" title="iCal 日历提醒（导入 Google Calendar / Outlook）" data-i18n-title="titleCopyIcal" aria-label="CV iCal">📅 CV iCal</button><button class="btn btn-outline btn-sm ml-4" onclick="exportCVExcel();" title="CV Report 汇总 Excel（5 sheets：汇总/精密度/准确度/线性/稳定性）" data-i18n-title="titleCopyCvXlsx" aria-label="CV Excel">📊 CV Excel</button><button class="btn btn-outline btn-sm ml-4" onclick="renderComprehensivePreview();" aria-label="CV Preview">CV Preview</button>
+    <button class="btn btn-outline btn-sm" onclick="exportExcel()" data-i18n="btnExportExcel" data-i18n-aria-label="btnExportExcel">导出 Excel</button>
+    <button id="btn-print-pdf" class="btn btn-outline btn-sm" onclick="printPDF()" data-i18n="btnPrintPdf" data-i18n-aria-label="titlePrintPDF">打印/PDF</button>
+  </div>
+  <!-- v54.249 a11y: tabindex=0 让 div scroll container 键盘可滚动（PageUp/PageDown/Arrow） -->
+  <!-- v54.284 Phase 5: history filter UI（搜索 + 类型） -->
+  <div id="history-filter-bar" class="filter-bar" role="search" aria-label="History filter" data-i18n-aria-label="ariaHistoryFilter" style="display:flex;gap:6px;align-items:center;padding:6px 0;flex-wrap:wrap">
+    <input type="search" id="history-filter-search" data-i18n-placeholder="searchHistoryPlaceholder" placeholder="搜索方法/分析物/批号..." aria-label="Search history" data-i18n-aria-label="ariaHistorySearch" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+    <select id="history-filter-type" data-i18n-aria-label="ariaHistoryType" aria-label="Filter by type" onchange="setHistoryFilter({search:document.getElementById('history-filter-search').value, type:this.value})" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+      <option value="" data-i18n="filterTypeAll">全部类型</option>
+      <option value="统计计算" data-i18n="histTypeStats">统计计算</option>
+      <option value="含量计算" data-i18n="cvHistTypeContent">含量计算</option>
+      <option value="外标含量" data-i18n="subtabRecoveryArea">外标含量</option>
+      <option value="回收率-面积归一化法" data-i18n="cvLegendRecAreaNorm">回收率-面积归一化法</option>
+      <option value="回收率-外标法" data-i18n="cvLegendRecExt">回收率-外标法</option>
+      <option value="回收率-内标法" data-i18n="cvLegendRecInt">回收率-内标法</option>
+      <option value="回收率-简易" data-i18n="cvLegendRecSimple">回收率-简易</option>
+      <option value="干燥失重" data-i18n="subtabDrying">干燥失重</option>
+      <option value="炽灼残渣" data-i18n="subtabResidue">炽灼残渣</option>
+      <option value="滴定度" data-i18n="subtabTiter">滴定度</option>
+      <option value="含量均匀度" data-i18n="subtabUniformity">含量均匀度</option>
+      <option value="溶出度" data-i18n="subtabDissolution">溶出度</option>
+      <option value="标准曲线" data-i18n="subtabCurve">标准曲线</option>
+    </select>
+    <button class="btn btn-outline btn-xs" id="history-filter-clear" type="button" onclick="setHistoryFilter({search:'', type:''}); document.getElementById('history-filter-search').value=''; document.getElementById('history-filter-type').value='';" data-i18n="filterClear">清除筛选</button>
+    <span id="history-filter-count" aria-live="polite" style="font-size:11px;color:var(--text-light);margin-left:auto" data-i18n-aria-label="ariaHistoryCount">0 / 0</span>
+  </div>
+  <div id="history-list" tabindex="0" role="region" aria-label="History list" data-i18n-aria-label="lblHistoryList"></div>
+</div>
+
+<div class="card" id="comprehensive-preview-card" style="display:none;margin-top:12px">
+  <div class="card-title" data-i18n="cardTitleComprehensivePreview">COMPREHENSIVE VALIDATION REPORT PREVIEW (QR-MV6013)</div>
+  <div id="comprehensive-preview" style="font-size:12px;line-height:1.5;max-height:600px;overflow:auto"></div>
+</div>
+
+<!-- ==================== PAGE: 流动相配制 ==================== -->
+<div id="page-mobile" role="tabpanel" aria-labelledby="tl0-tab-5" class="page">
+  <div class="card">
+    <div class="card-title"><span data-i18n="cardTitleMobilePhase">流动相配制</span> <button class="btn btn-danger btn-xs ml-8" onclick="clearMobilePhase()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      <span style="font-size:11px;color:var(--text-light);font-weight:400;margin-left:8px" data-i18n="hintReagentProportion">选试剂→设比例→自动出用量和配制方法</span>
+    </div>
+
+    <div class="half">
+      <div><label data-i18n="lblTargetVolume" for="mp-vol">目标总体积</label><input type="text" autocomplete="off" inputmode="numeric" id="mp-vol" placeholder="1000" value="1000" oninput="autoCalc()"></div>
+      <div><label for="mp-preset" data-i18n="lblCommonRatios">常用配比</label>
+        <select id="mp-preset" onchange="loadPreset()" data-i18n-aria-label="ariaMpPreset" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+          <option value="" data-i18n="lblSelectCommonRatio">-- 选择常用配比 --</option>
+          <option value="meoh70" data-i18n="lblRatioMeOHWater70">甲醇-水 (70:30)</option>
+          <option value="acn60" data-i18n="lblRatioMeCNWater60">乙腈-水 (60:40)</option>
+          <option value="meohacn" data-i18n="lblRatioMeCNMeOHWater">甲醇-乙腈-水 (60:20:20)</option>
+          <option value="fa01" data-i18n="lblRatioFormicMeCN">0.1%甲酸水-乙腈 (梯度起始)</option>
+          <option value="hexipa" data-i18n="lblRatioHexIsopropanol">正己烷-异丙醇 (95:5)</option>
+          <option value="empty" data-i18n="lblCustomBlank">自定义（空白）</option>
+        </select>
+      </div>
+    </div>
+
+    <div><b style="font-size:13px" data-i18n="lblComponentList">组分列表</b> <button class="btn btn-outline btn-xs" onclick="addMpRow()" style="margin-left:6px" data-i18n="btnAdd" data-i18n-aria-label="titleAdd">+ 添加</button></div>
+    <div id="mp-rows" class="mt-4"></div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="result-box" id="mp-result" style="display:none;grid-template-columns:1fr">
+    <div id="mp-result-content"></div>
+  </div>
+
+  <div class="card hide" id="mp-method-card">
+    <div class="card-title" data-i18n="cardTitleConfig">配制方法</div>
+    <div id="mp-method-output" style="font-size:13px;line-height:1.8"></div>
+  </div>
+
+  <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="savePlan()" data-i18n="btnSavePlan" data-i18n-aria-label="btnSavePlan">保存方案</button></div>
+
+  <!-- v54.76 我的配方 + 批量配制 -->
+  <div class="card" id="mp-recipe-card">
+    <div class="card-title"><span data-i18n="cardTitleMyRecipes">📚 我的配方</span>
+      <button class="btn btn-outline btn-xs ml-8" onclick="mpRenderRecipes()" data-i18n="btnRefresh" data-i18n-aria-label="btnRefresh">刷新</button>
+      <span style="font-size:11px;color:var(--text-light);font-weight:400;margin-left:8px" data-i18n="hintMyRecipesDesc">把当前组分存成命名配方，勾选多个可批量配制</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="mp-recipe-name" placeholder="配方名称（如 多肽-梯度-01）" data-i18n-placeholder="placeholderRecipeName" data-i18n-aria-label="titleRecipeName" style="flex:1;min-width:160px" aria-label="配方名称">
+      <button class="btn btn-primary btn-sm" onclick="mpSaveRecipe()" data-i18n="btnSaveAsRecipe" data-i18n-aria-label="titleSaveAsRecipe">💾 保存当前为配方</button>
+    </div>
+    <div id="mp-recipe-list" style="margin-top:6px"></div>
+    <hr style="margin:10px 0;border:none;border-top:1px solid var(--border)">
+    <div class="card-title" data-i18n="cardTitleBatchPrep">🧪 批量配制</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:13px" data-i18n="lblTargetVol">目标体积 <input type="text" autocomplete="off" inputmode="numeric" id="mp-batch-vol" value="1000" style="width:70px;text-align:center" aria-label="目标体积" data-i18n-aria-label="lblTargetVol"> mL</label>
+      <button class="btn btn-primary btn-sm" onclick="mpBatchPrep()" data-i18n="btnGenerateBatchTable" data-i18n-aria-label="btnGenerateBatchTable">生成批量配制表</button>
+      <button class="btn btn-outline btn-sm" onclick="mpExportBatchCSV()" data-i18n="btnExportCSV" data-i18n-aria-label="btnExportCSV">导出 CSV</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('mp-recipe-csv-input').click()" data-i18n="btnImportCSV" data-i18n-aria-label="btnImportCSV">📥 导入 CSV</button>
+      <input type="file" id="mp-recipe-csv-input" accept=".csv" class="hide" onchange="mpImportRecipeCSV(event)" data-i18n-aria-label="titleSelectRecipeCSV" aria-label="选择配方 CSV 文件">
+      <span class="fs-11-light" id="mp-batch-hint" data-i18n="lblBatchPrepHint">勾选上方配方后点「生成批量配制表」</span>
+    </div>
+    <div id="mp-batch-out" style="margin-top:6px"></div>
+  </div>
+</div>
+
+
+<!-- ==================== PAGE 6: 专项 ==================== -->
+<div id="page-special" role="tabpanel" aria-labelledby="tl0-tab-2" class="page">
+
+  <div class="subtabs" role="tablist" data-i18n-aria-label="ariaTablistSpecial" aria-label="Special analysis">
+    <button type="button" class="subtab active" id="st1-tab-0" role="tab" aria-selected="true" aria-controls="sp-drying" tabindex="0" onclick="switchSpecial('drying')" data-i18n="subtabDrying">干燥失重</button>
+    <button type="button" class="subtab" id="st1-tab-1" role="tab" aria-selected="false" aria-controls="sp-content" tabindex="-1" onclick="switchSpecial('content')" data-i18n="subtabContent">外标含量</button>
+    <button type="button" class="subtab" id="st1-tab-2" role="tab" aria-selected="false" aria-controls="sp-residue" tabindex="-1" onclick="switchSpecial('residue')" data-i18n="subtabResidue">炽灼残渣</button>
+    <button type="button" class="subtab" id="st1-tab-3" role="tab" aria-selected="false" aria-controls="sp-titer" tabindex="-1" onclick="switchSpecial('titer')" data-i18n="subtabTiter">滴定度</button>
+    <button type="button" class="subtab" id="st1-tab-4" role="tab" aria-selected="false" aria-controls="sp-mw" tabindex="-1" onclick="switchSpecial('mw')" data-i18n="subtabMw">分子量折算</button>
+    <button type="button" class="subtab" id="st1-tab-5" role="tab" aria-selected="false" aria-controls="sp-uniformity" tabindex="-1" onclick="switchSpecial('uniformity')" data-i18n="subtabUniformity">含量均匀度</button>
+    <button type="button" class="subtab" id="st1-tab-6" role="tab" aria-selected="false" aria-controls="sp-dissolution" tabindex="-1" onclick="switchSpecial('dissolution')" data-i18n="subtabDissolution">溶出度</button>
+    <button type="button" class="subtab" id="st1-tab-7" role="tab" aria-selected="false" aria-controls="sp-curve" tabindex="-1" onclick="switchSpecial('curve')" data-i18n="subtabCurve">标准曲线</button>
+    <button type="button" class="subtab" id="st1-tab-8" role="tab" aria-selected="false" aria-controls="sp-spike" tabindex="-1" onclick="switchSpecial('spike')" data-i18n="subtabSpike">🧪 加样回收率</button>
+  </div>
+
+  <!-- === 干燥失重 === -->
+  <div id="sp-drying" role="tabpanel" aria-labelledby="st1-tab-0" class="sp-method">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleDryingLoss">干燥失重测定 <button class="btn btn-danger btn-xs ml-8" onclick="clearDrying()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:8px" data-i18n="lblDryingLossFormula">干燥失重% = (W₁ − W₂) / (W₁ − W₀) × 100%</p>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addDryingSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-outline btn-sm" onclick="batchPaste('drying-samples', renderDrying, 'drying')" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+        <button class="btn btn-primary btn-sm" onclick="saveDryingHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('drying')" data-i18n-aria-label="preview" aria-label="预览">预览</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportDryingCSV()" data-i18n-aria-label="exportCsv" aria-label="导出 CSV">📊 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearDrying()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <div id="drying-samples"></div>
+    </div>
+  </div>
+
+  <!-- === 外标含量 === -->
+  <div id="sp-content" role="tabpanel" aria-labelledby="st1-tab-1" class="sp-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleRefStdParams2">对照品 (标准品) 参数 <button class="btn btn-danger btn-xs ml-8" onclick="clearContentStd()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div style="font-size:12px;color:var(--text-light);margin-bottom:8px">
+        <b data-i18n="lblContentFormulaExt">含量% = (A样 x W对 x P对 / D对) / (A对 x W样 / D样) x 100</b><br>
+        <span class="fs-11" data-i18n="lblContentExtVars">A对=对照峰面积 W对=对照称样量(mg) P对=纯度(%) D对=对照稀释(mL) A样=样品的峰面积 W样=称样量(mg) D样=稀释(mL)</span>
+      </div>
+      <div class="half">
+        <div><label data-i18n="th-peak-area" for="std-area">峰面积</label><input type="text" autocomplete="off" inputmode="decimal" id="std-area" placeholder="0" oninput="renderContent()"></div>
+        <div><label data-i18n="lbl-sample-weight" for="std-weight">称样量 (mg)</label><input type="text" autocomplete="off" inputmode="decimal" id="std-weight" placeholder="0" oninput="renderContent()"></div>
+        <div><label data-i18n="lblPurity" for="std-purity">纯度 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="std-purity" placeholder="100" value="100" oninput="renderContent()"></div>
+        <div><label data-i18n="lbl-dilution-vol" for="std-dilution">稀释体积 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="std-dilution" placeholder="0" oninput="renderContent()"></div>
+      </div>
+      <div class="section-label" data-i18n="card-title-drying-param">干燥品折算参数</div>
+      <div class="half">
+        <div><label data-i18n="lblMoisturePct" for="std-moisture">水分 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="std-moisture" placeholder="0" value="0" oninput="renderContent()"></div>
+        <div><label data-i18n="lbl-residue-pct" for="std-residue">炽灼残渣 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="std-residue" placeholder="0" value="0" oninput="renderContent()"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span data-i18n="cardTitleSampleListMulti">样品列表</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintAddParallel">（每个样品可添加多份平行样）</span></div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addContentSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-primary btn-sm" onclick="saveContentHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('content')" data-i18n-aria-label="preview" aria-label="预览">预览</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportContentCSV()" data-i18n-aria-label="titleDownloadExtStdCSV" data-i18n-title="titleDownloadExtStdCSV" title="下载外标含量为 CSV 文件">📊 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearContent()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <div id="content-samples"></div>
+    </div>
+  </div>
+
+  <!-- === 炽灼残渣 === -->
+  <div id="sp-residue" role="tabpanel" aria-labelledby="st1-tab-2" class="sp-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleResidueTest">炽灼残渣测定 <button class="btn btn-danger btn-xs ml-8" onclick="clearResidue()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:8px" data-i18n="lblResidueFormula">炽灼残渣% = (W₂ − W₀) / (W₁ − W₀) × 100%</p>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addResidueSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-outline btn-sm" onclick="batchPaste('residue-samples', renderResidue, 'residue')" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+        <button class="btn btn-primary btn-sm" onclick="saveResidueHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('residue')" data-i18n-aria-label="preview" aria-label="预览">预览</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportResidueCSV()" data-i18n-aria-label="exportCsv" aria-label="导出 CSV">📊 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearResidue()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <div id="residue-samples"></div>
+    </div>
+  </div>
+
+  <!-- === 滴定度（占位） === -->
+  <div id="sp-titer" role="tabpanel" aria-labelledby="st1-tab-3" class="sp-method hide">
+  <div class="card">
+    <div class="card-title"><span data-i18n="cardTitleTiterContent">滴定度/T 含量计算</span>
+      <button class="btn btn-danger btn-xs ml-8" onclick="clearTiter()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      <button class="btn btn-outline btn-xs ml-4" onclick="undoTiter()" data-i18n="btnUndo" data-i18n-aria-label="btnUndo">↶ 撤销</button>
+      <button class="btn btn-outline btn-xs ml-4" onclick="exportTiterCSV()" data-i18n-aria-label="exportCsv" aria-label="导出 CSV">📊 CSV</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:8px">
+      <b data-i18n="lblTiterContentFormula">含量% = (V样 - V0样) x F x m基准 x P / [(V标 - V0标) x W样] x 100</b><br>
+      <span class="fs-11" data-i18n="lblTiterContentVars">V样=滴定体积 V0样=空白 F=校正因子 m基准=基准物质量(mg) P=纯度(%) V标=标准滴定 V0标=标准空白 W样=称样量(mg)</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span data-i18n="cardTitleTiterSelect">📋 滴定液选择</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintMethodCount">（47 种方法 + 22 项注意事项）</span></div>
+    <div class="mb-8"><label for="titer-search" data-i18n="placeholderSearchTiter" class="visually-hidden">搜索滴定方法</label><input type="text" autocomplete="off" id="titer-search" placeholder="🔍 搜索名称/分子式/ID..." data-i18n-placeholder="placeholderSearchTiter" oninput="renderTiterMethodOptions(document.querySelector('#titer-cat-pills .pill.active')?.dataset.cat || i18n('titerCategoryAll'))" style="font-size:13px"></div>
+    <div id="titer-cat-pills" class="mb-8"></div>
+    <label for="titer-method-select" class="visually-hidden" data-i18n="cardTitleTiterSelect">滴定液选择</label>
+    <select id="titer-method-select" onchange="_pushTiterUndo();loadTiterMethod()" data-i18n-aria-label="ariaTiterMethodSelect" style="font-size:13px"></select>
+    <div id="titer-recent" style="margin-top:6px"></div>
+    <div style="margin-top:8px;padding:8px;background:var(--primary-light,#f0f4ff);border-radius:6px;font-size:12px">
+      <div><b data-i18n="lblConcentrationColon">浓度：</b><span id="titer-meq">—</span> | <b data-i18n="lblIndicatorColon">指示剂：</b><span id="titer-indicator">—</span></div>
+      <div class="mt-4"><b data-i18n="lblNotesWarning">⚠️ 注意事项：</b><span id="titer-precaution" style="color:var(--text)" data-i18n="lblSelectTiterSolution">请选择滴定液</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span data-i18n="cardTitleCalibParams">标定参数</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintCalibParallel">（支持 3+ 平行标定）</span></div>
+    <div class="half">
+      <div><label data-i18n="lblVstd" for="titer-vs">V标 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="titer-vs" placeholder="0" oninput="_pushTiterUndo();renderTiter()"></div>
+      <div><label data-i18n="lblV0std" for="titer-v0s">V0标 (mL)</label><input type="text" autocomplete="off" inputmode="decimal" id="titer-v0s" placeholder="0" oninput="_pushTiterUndo();renderTiter()"></div>
+      <div><label data-i18n="lblMstd" for="titer-ms">m基准 (mg)</label><input type="text" autocomplete="off" inputmode="decimal" id="titer-ms" placeholder="0" oninput="_pushTiterUndo();renderTiter()"></div>
+      <div><label data-i18n="lblPurityLabel" for="titer-ps">P 纯度 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="titer-ps" placeholder="100" value="100" oninput="_pushTiterUndo();renderTiter()"></div>
+    </div>
+    <div class="half">
+      <div><label data-i18n="lblCorrFactorF" for="titer-f">校正因子 F</label><input type="text" autocomplete="off" inputmode="decimal" id="titer-f" placeholder="1" value="1" oninput="_pushTiterUndo();renderTiter()"></div>
+      <div><label for="titer-t" data-i18n="lblTiterConc">T 滴定度 (mg/mL) <span class="fs-10-light" data-i18n="lblSelfOrManual">自算/手动</span></label><input type="text" autocomplete="off" inputmode="decimal" id="titer-t" placeholder="自动" data-i18n-placeholder="placeholderAuto" oninput="_pushTiterUndo();renderTiter()"></div>
+    </div>
+    <div id="titer-t-display" style="text-align:center;font-size:13px;color:var(--primary);font-weight:700;margin-top:6px">T = <span id="titer-t-val">-</span> mg/mL</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span data-i18n="cardTitleSampleListFormula">样品列表</span> <span style="font-weight:400;font-size:12px;color:var(--text-light)" data-i18n="hintFormulaInput">（每行可输入公式）</span></div>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="addTiterSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+      <button class="btn btn-outline btn-sm" onclick="batchPaste('titer-samples', renderTiter, 'titer')" data-i18n-aria-label="btnBatchPaste" data-i18n="btnBatchPaste">粘贴数据</button>
+      <button class="btn btn-primary btn-sm" onclick="saveTiterHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('titer')" data-i18n-aria-label="preview" aria-label="预览">预览</button>
+      <button class="btn btn-outline btn-sm" onclick="clearTiter()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+    </div>
+    <div id="titer-samples"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" data-i18n="cardTitleUniformityStats">📊 标定统计 + F̄ 历史趋势</div>
+    <div id="titer-stat-cards" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:4px" data-i18n="lblFTrendTitle">F̄ 历史趋势（警戒范围 0.95–1.05）</div>
+    <div id="titer-trend-svg" style="width:100%;min-height:80px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px"></div>
+  </div>
+</div>
+  <!-- === 分子量折算 === -->
+  <div id="sp-mw" role="tabpanel" aria-labelledby="st1-tab-4" class="sp-method hide">
+    <div class="card">
+      <div class="card-title"><span data-i18n="cardTitleMwCalc">分子量折算</span> <button class="btn btn-outline btn-sm" onclick="clearMw()" style="margin-left:8px;border-color:#999;color:#666" data-i18n="btnReset" data-i18n-aria-label="btnReset">重置</button></div>
+      <div class="subtabs mb-8" role="tablist" data-i18n-aria-label="ariaTablistMw" aria-label="Molecular weight basis">
+        <button type="button" class="subtab active" data-type="dry" id="st2-tab-0" role="tab" aria-selected="true" aria-controls="mw-dry" tabindex="0" onclick="switchMw('dry')" data-i18n="subtabMwDry">干燥品</button>
+        <button type="button" class="subtab" data-type="anhydrous" id="st2-tab-1" role="tab" aria-selected="false" aria-controls="mw-anhydrous" tabindex="-1" onclick="switchMw('anhydrous')" data-i18n="subtabMwAnhydrous">无水物</button>
+        <button type="button" class="subtab" data-type="solvent" id="st2-tab-2" role="tab" aria-selected="false" aria-controls="mw-solvent" tabindex="-1" onclick="switchMw('solvent')" data-i18n="subtabMwSolvent">无溶剂</button>
+        <button type="button" class="subtab" data-type="freebase" id="st2-tab-3" role="tab" aria-selected="false" aria-controls="mw-freebase" tabindex="-1" onclick="switchMw('freebase')" data-i18n="subtabMwFreebase">游离碱/酸</button>
+      </div>
+      <div id="mw-formula" style="font-size:12px;color:var(--primary);margin-bottom:8px;font-weight:600" data-i18n="lblDryingContentFormula">
+        折算含量 = 测得含量 / [1 − (水分% + 溶剂%) / 100]
+      </div>
+      <!-- 干燥品 -->
+      <div id="mw-dry" role="tabpanel" aria-labelledby="st2-tab-0" class="mw-type">
+        <div class="half">
+          <div><label data-i18n="lbl-measured-content-pct">测得含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-val" placeholder="0" oninput="calcMw()" aria-label="测得含量 (%)" data-i18n-aria-label="lbl-measured-content-pct"></div>
+          <div><label data-i18n="lblMoisturePct">水分 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-water" placeholder="0" oninput="calcMw()" aria-label="水分 (%)" data-i18n-aria-label="lblMoisturePct"></div>
+          <div><label data-i18n="lblSolventPct">溶剂 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-solvent" placeholder="0" oninput="calcMw()" aria-label="溶剂 (%)" data-i18n-aria-label="lblSolventPct"></div>
+        </div>
+      </div>
+      <!-- 无水物 -->
+      <div id="mw-anhydrous" role="tabpanel" aria-labelledby="st2-tab-1" class="mw-type hide">
+        <div class="half">
+          <div><label data-i18n="lbl-measured-content-pct">测得含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-val" placeholder="0" oninput="calcMw()" aria-label="测得含量 (%)" data-i18n-aria-label="lbl-measured-content-pct"></div>
+          <div><label>M<sub data-i18n="lblAnhydrous">无水物</sub> (g/mol)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-ma" placeholder="0" aria-label="M 无水物 (g/mol)" data-i18n-aria-label="ariaMwAnhydrous" oninput="calcMw()"></div>
+          <div><label>M<sub data-i18n="lblHydrous">有水物</sub> (g/mol)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-mh" placeholder="0" aria-label="M 有水物 (g/mol)" data-i18n-aria-label="ariaMwHydrous" oninput="calcMw()"></div>
+        </div>
+      </div>
+      <!-- 无溶剂 -->
+      <div id="mw-solvent" role="tabpanel" aria-labelledby="st2-tab-2" class="mw-type hide">
+        <div class="half">
+          <div><label data-i18n="lbl-measured-content-pct">测得含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-val" placeholder="0" oninput="calcMw()" aria-label="测得含量 (%)" data-i18n-aria-label="lbl-measured-content-pct"></div>
+          <div><label data-i18n="lblSolventPct">溶剂 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-solvent" placeholder="0" oninput="calcMw()" aria-label="溶剂 (%)" data-i18n-aria-label="lblSolventPct"></div>
+        </div>
+      </div>
+      <!-- 游离碱/酸 -->
+      <div id="mw-freebase" role="tabpanel" aria-labelledby="st2-tab-3" class="mw-type hide">
+        <div class="half">
+          <div><label data-i18n="lbl-measured-content-pct">测得含量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-val" placeholder="0" oninput="calcMw()" aria-label="测得含量 (%)" data-i18n-aria-label="lbl-measured-content-pct"></div>
+          <div><label>M<sub data-i18n="lblFreeBase">游离碱</sub> (g/mol)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-mb" placeholder="0" aria-label="M 游离碱 (g/mol)" data-i18n-aria-label="ariaMwFreeBase" oninput="calcMw()"></div>
+          <div><label>M<sub data-i18n="lblSalt">盐</sub> (g/mol)</label><input type="text" autocomplete="off" inputmode="decimal" class="mw-ms" placeholder="0" aria-label="M 盐 (g/mol)" data-i18n-aria-label="ariaMwSalt" oninput="calcMw()"></div>
+        </div>
+      </div>
+      <div class="result-box" id="mw-result" style="display:none;grid-template-columns:1fr">
+        <div class="result-item"><div class="label" data-i18n="lblConvertedContent">折算后含量</div><div class="value" id="mw-out">—</div><div class="unit">%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === 含量均匀度 === -->
+  <div id="sp-uniformity" role="tabpanel" aria-labelledby="st1-tab-5" class="sp-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleUniformity">含量均匀度 <button class="btn btn-danger btn-xs ml-8" onclick="clearUniformity()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div style="font-size:12px;color:var(--primary);margin-bottom:6px;font-weight:600" data-i18n="lblUniformityFormula">
+        判定公式: A + 2.2S ≤ L | A = |100 − 均值| | L = 限度值(默认15.0)
+      </div>
+      <div class="half mb-8">
+        <div><label data-i18n="lblLimitL" for="uni-limit">限度值 L</label><input type="text" autocomplete="off" inputmode="decimal" id="uni-limit" placeholder="15.0" value="15.0" oninput="calcUniformity()"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addUniformitySample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-primary btn-sm" onclick="saveUniformityHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('uniformity')" data-i18n-aria-label="preview" aria-label="预览">预览</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportUniformityCSV()" data-i18n-aria-label="exportCsv" aria-label="导出 CSV">📊 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearUniformity()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <div id="uniformity-samples"></div>
+      <div class="result-box hide" id="uni-result">
+        <div class="result-item"><div class="label" data-i18n="lblUniMean">均值</div><div class="value" id="uni-mean">—</div><div class="unit">%</div></div>
+        <div class="result-item"><div class="label" data-i18n="lblUniA">A = |100-均值|</div><div class="value" id="uni-a">—</div></div>
+        <div class="result-item"><div class="label">S</div><div class="value" id="uni-s">—</div></div>
+        <div class="result-item"><div class="label">A+2.2S</div><div class="value" id="uni-as">—</div></div>
+        <div class="result-item"><div class="label" data-i18n="lblUniVerdict">判定</div><div class="value" id="uni-verdict" aria-live="polite" style="font-size:16px">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === 溶出度（占位） === -->
+  <div id="sp-dissolution" role="tabpanel" aria-labelledby="st1-tab-6" class="sp-method hide">
+    <div class="card">
+      <div class="card-title" data-i18n="cardTitleDissolution">溶出度 <button class="btn btn-danger btn-xs ml-8" onclick="clearDissolution()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+      <div style="font-size:12px;color:var(--primary);margin-bottom:6px;font-weight:600" data-i18n="lblDissolutionFormula">溶出度(%) = 实测含量 / 标示量 × 100</div>
+      <div class="half mb-8">
+        <div><label data-i18n="lblLabeledAmount" for="diss-label">标示量 (%)</label><input type="text" autocomplete="off" inputmode="decimal" id="diss-label" placeholder="100" value="100" oninput="calcDissolution()"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addDissolutionSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-primary btn-sm" onclick="saveDissolutionHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('dissolution')" data-i18n-aria-label="preview" aria-label="预览">预览</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportDissolutionCSV()" data-i18n-aria-label="exportCsv" aria-label="导出 CSV">📊 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearDissolution()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <div id="dissolution-samples"></div>
+      <div class="result-box hide" id="diss-result">
+        <div class="result-item"><div class="label" data-i18n="lblDissMean">平均溶出度</div><div class="value" id="diss-mean">—</div><div class="unit">%</div></div>
+        <div class="result-item"><div class="label">SD</div><div class="value" id="diss-sd">—</div></div>
+        <div class="result-item"><div class="label">RSD</div><div class="value" id="diss-rsd">—</div><div class="unit">%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === 标准曲线 === -->
+  <div id="sp-curve" role="tabpanel" aria-labelledby="st1-tab-7" class="sp-method hide">
+  <div class="card">
+    <div class="card-title" data-i18n="spCurveTitle">标准曲线（线性回归） <button class="btn btn-danger btn-xs ml-8" onclick="clearCurve()" data-i18n="clear" data-i18n-aria-label="clear">清空</button></div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:8px" data-i18n="lblLinRegressDesc">y = ax + b | 输入浓度(x)和响应(y)数据对，自动拟合</p>
+    <table class="matrix-table">
+      <thead><tr><th scope="col" data-i18n="th-seq">序号</th><th scope="col" data-i18n="lblConcentrationX">浓度 (x)</th><th scope="col" data-i18n="lblResponseY">响应 (y)</th><th scope="col" data-i18n="thPredY">预测 y'</th><th scope="col" data-i18n="th-op">操作</th></tr></thead>
+      <tbody id="curve-rows">
+        <tr><td>1</td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-x" placeholder="0" oninput="calcCurve()" aria-label="浓度 (x)" data-i18n-aria-label="lblConcentrationX"></td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-y" placeholder="0" oninput="calcCurve()" aria-label="响应 (y)" data-i18n-aria-label="lblResponseY"></td><td class="result-col" id="curve-py-1">—</td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeCurveRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+        <tr><td>2</td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-x" placeholder="0" oninput="calcCurve()" aria-label="浓度 (x)" data-i18n-aria-label="lblConcentrationX"></td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-y" placeholder="0" oninput="calcCurve()" aria-label="响应 (y)" data-i18n-aria-label="lblResponseY"></td><td class="result-col" id="curve-py-2">—</td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeCurveRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+        <tr><td>3</td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-x" placeholder="0" oninput="calcCurve()" aria-label="浓度 (x)" data-i18n-aria-label="lblConcentrationX"></td><td><input type="text" autocomplete="off" inputmode="decimal" class="curve-y" placeholder="0" oninput="calcCurve()" aria-label="响应 (y)" data-i18n-aria-label="lblResponseY"></td><td class="result-col" id="curve-py-3">—</td><td><button type="button" class="btn btn-danger btn-xs" onclick="removeCurveRow(this)" aria-label="删除此行" data-i18n-aria-label="ariaRemoveRow">-</button></td></tr>
+      </tbody>
+    </table>
+    <button class="btn btn-outline btn-sm" onclick="addCurveRow()" data-i18n="btnAddDataPoint" data-i18n-aria-label="titleAddDataPoint">+ 添加数据点</button>
+    <div class="regression-result" id="curve-result" style="display:none;margin-top:8px">
+      <span data-i18n="lblRegressionEq">回归方程:</span> <span>y = <span id="curve-a">—</span>x + <span id="curve-b">—</span></span> | R² = <span id="curve-r2">—</span>
+    </div>
+    <div id="curveChartCard" class="card" style="display:none;margin-top:8px;background:#fff;border:1px solid var(--border);">
+      <div class="card-title" data-i18n="cardTitleCurveChart" style="font-size:13px;">标准曲线图</div>
+      <div style="position:relative;height:300px;">
+        <canvas id="curveChart" role="img" data-i18n-aria-label="cardTitleCurveChart" aria-label="标准曲线图"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" data-i18n="cardTitleCalcBack">浓度反算</div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:8px" data-i18n="lblLinRegressReverse">输入未知样品的响应值 y₀，根据回归方程反算浓度 x₀ = (y₀ − b)/a</p>
+    <div class="half">
+      <div><label data-i18n="lblResponseY0" for="curve-y0">响应值 y₀</label><input type="text" autocomplete="off" inputmode="decimal" id="curve-y0" placeholder="0" oninput="calcCurveBack()"></div>
+    </div>
+    <div class="result-box" id="curve-back-result" style="display:none;grid-template-columns:1fr;margin-top:8px">
+      <div class="result-item"><div class="label" data-i18n="lblCurveX0">推算浓度 x₀</div><div class="value" id="curve-x0">—</div></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary btn-sm" onclick="saveCurveHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportCurveCSV()" data-i18n-aria-label="titleDownloadCurveCSV" data-i18n-title="titleDownloadCurveCSV" title="下载标准曲线为 CSV 文件">📊 CSV</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('curve')" data-i18n-aria-label="preview" aria-label="预览">预览</button>
+    <button class="btn btn-outline btn-sm" onclick="clearCurve()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+  </div>
+</div>
+
+  <!-- === 加样回收率（spike recovery） === -->
+  <div id="sp-spike" role="tabpanel" aria-labelledby="st1-tab-8" class="sp-method hide">
+    <div class="card">
+      <div class="card-title"><span data-i18n="cardTitleSpikeRec">🧪 加样回收率（Spike Recovery）</span>
+        <button class="btn btn-outline btn-xs ml-8" onclick="addSpikeSample()" data-i18n="btn-add-sample" data-i18n-aria-label="addSample">+ 添加样品</button>
+        <button class="btn btn-primary btn-xs ml-4" onclick="saveSpikeRecoveryHistory()" data-i18n="btn-save" data-i18n-aria-label="btnSave">保存结果</button> <button class="btn btn-outline btn-xs ml-4" onclick="exportSpikeCSV()" data-i18n-aria-label="titleDownloadSpikeCSV" data-i18n-title="titleDownloadSpikeCSV" title="下载加样回收率为 CSV 文件">📊 CSV</button> <button class="btn btn-outline btn-xs ml-4" onclick="renderSpecialPreview('spike')" data-i18n-aria-label="preview" aria-label="预览">预览</button>
+        <button class="btn btn-outline btn-xs ml-4" onclick="calcSpike()" data-i18n="btnCalculate" data-i18n-aria-label="btnCalculate">计算</button>
+        <button class="btn btn-danger btn-xs ml-4" onclick="clearSpike()" data-i18n="clear" data-i18n-aria-label="clear">清空</button>
+      </div>
+      <p style="font-size:12px;color:var(--text-light);margin-bottom:8px" data-i18n="lblRecoveryChPDesc">回收率% = (测得总量 − 原有量) / 加入量 × 100%；ChP 9101 接受范围：80%–115% (各水平)，RSD ≤ 8%</p>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <label for="spike-original" style="font-size:12px" data-i18n="lblOriginalAmount">样品原有量 (mg):</label>
+        <input type="text" autocomplete="off" inputmode="numeric" id="spike-original" placeholder="0" oninput="calcSpike()" style="width:90px;padding:6px;border:1.5px solid var(--border);border-radius:6px">
+        <label for="spike-limit-low" style="font-size:12px" data-i18n="lblLimitRange">限度范围 (%):</label>
+        <input type="text" autocomplete="off" inputmode="numeric" id="spike-limit-low" value="80" oninput="calcSpike()" data-i18n-aria-label="ariaSpikeLimitLow" style="width:60px;padding:6px;border:1.5px solid var(--border);border-radius:6px" aria-label="加样回收率下限">
+        <span>~</span>
+        <input type="text" autocomplete="off" inputmode="numeric" id="spike-limit-high" value="115" oninput="calcSpike()" data-i18n-aria-label="titleLimitUpper" style="width:60px;padding:6px;border:1.5px solid var(--border);border-radius:6px" aria-label="限度上限">
+        <label for="spike-rsd-limit" style="font-size:12px" data-i18n="lblRsdLimit">RSD 限度 (%):</label>
+        <input type="text" autocomplete="off" inputmode="numeric" id="spike-rsd-limit" value="8" oninput="calcSpike()" data-i18n-aria-label="ariaSpikeRsdLimit" style="width:50px;padding:6px;border:1.5px solid var(--border);border-radius:6px" aria-label="加样回收 RSD 上限">
+      </div>
+      <table class="matrix-table" id="spike-table">
+        <thead>
+          <tr><th scope="col">#</th><th scope="col" data-i18n="thLevel">水平</th><th scope="col" data-i18n="thSpikeAdd">加入量 (mg)</th><th scope="col" data-i18n="thMeasuredTotal">测得总量 (mg)</th><th scope="col" data-i18n="thRecoveryPct">回收率 (%)</th><th scope="col" data-i18n="thVerdict">判定</th><th scope="col" data-i18n="thOp">操作</th></tr>
+        </thead>
+        <tbody id="spike-rows"></tbody>
+      </table>
+    </div>
+    <div class="result-box hide" id="spike-result">
+      <div class="result-item"><div class="label" data-i18n="lbl-avg-recovery">平均回收率</div><div class="value" id="spike-mean">—</div></div>
+      <div class="result-item"><div class="label">SD</div><div class="value" id="spike-sd">—</div></div>
+      <div class="result-item"><div class="label">RSD (%)</div><div class="value" id="spike-rsd">—</div></div>
+      <div class="result-item"><div class="label" data-i18n="lblOverallVerdict">综合判定</div><div class="value" id="spike-verdict" aria-live="polite">—</div></div>
+    </div>
+    <div class="card hide" id="spike-history-card">
+      <div class="card-title" data-i18n="cardTitleHistory">📚 历史记录</div>
+      <div id="spike-history-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="page-settings" role="tabpanel" aria-labelledby="tl0-tab-6" class="page">
+
+  <div class="card" aria-labelledby="settings-appearance">
+    <h2 id="settings-appearance" class="visually-hidden" data-i18n="cardTitleAppearance"></h2>
+    <div class="card-title" data-i18n="cardTitleAppearance">外观</div>
+    <div class="half">
+      <div>
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend data-i18n="lblThemeMode" style="font-size:13px;padding:0">主题模式</legend>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button type="button" class="btn btn-outline btn-xs" onclick="setTheme('light')" style="flex:1;padding:8px" id="theme-light-btn" data-i18n="btnThemeLight" data-i18n-aria-label="btnThemeLight">浅色</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="setTheme('dark')" style="flex:1;padding:8px" id="theme-dark-btn" data-i18n="btnThemeDark" data-i18n-aria-label="btnThemeDark">深色</button>
+          </div>
+        </fieldset>
+      </div>
+      <div>
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend data-i18n="lblFontSize" style="font-size:13px;padding:0">字体大小</legend>
+          <div style="display:flex;gap:4px;margin-top:4px">
+            <button type="button" class="btn btn-outline btn-xs" onclick="setFontSize('small')" style="flex:1;padding:6px" id="font-small-btn" data-i18n="btnFontSmall" data-i18n-aria-label="btnFontSmall">A- 小</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="setFontSize('medium')" style="flex:1;padding:6px" id="font-medium-btn" data-i18n="btnFontMedium" data-i18n-aria-label="btnFontMedium">A 中</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="setFontSize('large')" style="flex:1;padding:6px" id="font-large-btn" data-i18n="btnFontLarge" data-i18n-aria-label="btnFontLarge">A+ 大</button>
+          </div>
+        </fieldset>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-report-meta">
+    <h2 id="settings-report-meta" class="visually-hidden" data-i18n="cardTitleReportMeta"></h2>
+    <div class="card-title" data-i18n="cardTitleReportMeta">REPORT META</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px">Auto-fills report header (date/operator/instrument/column) and appends to export filenames as sample_batch-date</div>
+    <div class="half">
+      <div><label data-i18n="metaSampleName" for="settings-sample-name">Sample Name</label><input type="text" autocomplete="off" id="settings-sample-name" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsSampleName" class="fs-14" aria-label="样品名称"></div>
+      <div><label data-i18n="placeholderSampleId" for="settings-sample-id">样品 ID</label><input type="text" autocomplete="off" id="settings-sample-id" oninput="saveReportMetaFromSettings()" placeholder="注入每条历史 entry._meta" data-i18n-placeholder="placeholderInjectMeta" class="fs-14"></div>
+      <div><label data-i18n="cvMetaBatch" for="settings-batch">Batch</label><input type="text" autocomplete="off" id="settings-batch" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsBatch" class="fs-14" aria-label="批号"></div>
+      <div><label data-i18n="cvMetaOperator" for="settings-operator">Operator</label><input type="text" autocomplete="off" id="settings-operator" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsOperator" class="fs-14" aria-label="操作员"></div>
+      <div><label data-i18n="cvMetaInstrument" for="settings-instrument">Instrument</label><input type="text" autocomplete="off" id="settings-instrument" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsInstrument" class="fs-14" aria-label="仪器"></div>
+      <div><label data-i18n="cvMetaColumn" for="settings-column">Column</label><input type="text" autocomplete="off" id="settings-column" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsColumn" class="fs-14" aria-label="色谱柱"></div>
+      <div><label data-i18n="metaTagPrefix" for="settings-tag-prefix">Tag Prefix</label><input type="text" autocomplete="off" id="settings-tag-prefix" oninput="saveReportMetaFromSettings()" data-i18n-aria-label="ariaSettingsTagPrefix" class="fs-14" aria-label="标签前缀"></div>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-report-qr">
+    <h2 id="settings-report-qr" class="visually-hidden" data-i18n="cardTitleReportQr"></h2>
+    <div class="card-title" data-i18n="cardTitleReportQr">REPORT QR</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblQrSizeDesc">PDF 报告角标二维码尺寸（下次导出即时生效）</div>
+    <div>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend data-i18n="lblQrSize" style="font-size:13px;padding:0">QR 码大小</legend>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button type="button" class="btn btn-outline btn-xs" onclick="setQRSize('small')"  style="flex:1;padding:6px" id="qr-small-btn" data-i18n="qrBtnSmall" data-i18n-aria-label="titleQrSizeSmall">小</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="setQRSize('medium')" style="flex:1;padding:6px" id="qr-medium-btn" data-i18n="qrBtnMedium" data-i18n-aria-label="titleQrSizeMedium">中（默认）</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="setQRSize('large')"  style="flex:1;padding:6px" id="qr-large-btn" data-i18n="qrBtnLarge" data-i18n-aria-label="titleQrSizeLarge">大</button>
+        </div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-weight-unit">
+    <h2 id="settings-weight-unit" class="visually-hidden" data-i18n="cardTitleWeightUnit"></h2>
+    <div class="card-title" data-i18n="cardTitleWeightUnit">重量单位</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblWeightUnitDesc">切换 mg / g；只影响显示与输入，不改变存储（始终按 mg 持久化）</div>
+    <div>
+      <fieldset style="border:0;padding:0;margin:0">
+        <legend data-i18n="lblWeightUnit" style="font-size:13px;padding:0">重量单位</legend>
+        <div style="display:flex;gap:4px;margin-top:4px">
+          <button type="button" class="btn btn-outline btn-xs" onclick="setWeightUnit('mg')" style="flex:1;padding:6px" id="wu-mg-btn" data-i18n="btnWeightUnitMg" data-i18n-aria-label="btnWeightUnitMg">mg</button>
+          <button type="button" class="btn btn-outline btn-xs" onclick="setWeightUnit('g')" style="flex:1;padding:6px" id="wu-g-btn" data-i18n="btnWeightUnitG" data-i18n-aria-label="btnWeightUnitG">g</button>
+        </div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-data-mgmt">
+    <h2 id="settings-data-mgmt" class="visually-hidden" data-i18n="cardTitleDataMgmt"></h2>
+    <div class="card-title" data-i18n="cardTitleDataMgmt">Data Management</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="clearHistory()" data-i18n="btnClearHistory" data-i18n-aria-label="settingsClearHistory">Clear History</button>
+      <button class="btn btn-outline btn-sm" onclick="renderSettingsPage()" data-i18n="btnRefresh" data-i18n-aria-label="settingsRefresh">Refresh</button>
+    </div>
+    <div id="settings-storage-info" style="margin-top:8px;font-size:11px;color:var(--text-light)"></div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-backup">
+    <h2 id="settings-backup" class="visually-hidden" data-i18n="cardTitleBackup"></h2>
+    <div class="card-title" data-i18n="cardTitleBackup">数据备份与恢复</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblBackupDesc">一键打包所有 rsd- 前缀的 localStorage 数据；恢复时覆盖现有同名键</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="backupAll()" data-i18n="btnBackupAll" data-i18n-aria-label="titleBackupAll">💾 备份全部</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('restore-file-input').click()" data-i18n="btnRestoreData" data-i18n-aria-label="settingsRestore">📥 恢复</button>
+      <input type="file" id="restore-file-input" accept=".json" class="hide" onchange="restoreBackup(event)" data-i18n-aria-label="titleSelectBackupJSON" aria-label="选择备份 JSON 文件">
+      <span id="backup-last-time" style="font-size:11px;color:var(--text-light);align-self:center;margin-left:4px"></span>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-export-import">
+    <h2 id="settings-export-import" class="visually-hidden" data-i18n="cardTitleExportImport"></h2>
+    <div class="card-title" data-i18n="cardTitleExportImport">导出与导入</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblTemplateDesc">Excel/Word/PDF 报告 + 模板导入导出（模板键以 rsd-template- 前缀）</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="exportExcelAll()" data-i18n="btnExportExcelAll" data-i18n-aria-label="btnExportExcel">📊 导出 Excel</button>
+      <button class="btn btn-outline btn-sm" onclick="exportWordAll()" data-i18n="btnExportWord" data-i18n-aria-label="btnExportWord">📄 导出 Word</button>
+      <button class="btn btn-outline btn-sm" onclick="exportPDFAll()" data-i18n="btnExportPdf" data-i18n-aria-label="btnExportPDF">🖨️ 导出 PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="exportAllTemplates()" data-i18n="btnTemplateExport" data-i18n-aria-label="titleTemplateExport">📋 模板导出</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-template-input').click()" data-i18n="btnTemplateImport" data-i18n-aria-label="titleTemplateImport">📥 模板导入</button>
+      <input type="file" id="import-template-input" accept=".json" class="hide" onchange="importTemplates(event)" data-i18n-aria-label="titleSelectTemplateJSON" aria-label="选择模板 JSON 文件">
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-titer-defaults">
+    <h2 id="settings-titer-defaults" class="visually-hidden" data-i18n="cardTitleTiterDefaults"></h2>
+    <div class="card-title" data-i18n="cardTitleTiterDefaults">滴定默认值</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblThresholdDesc">RSD 阈值（默认 0.1%）/ F 警戒范围（默认 0.95–1.05）/ 平行份数（默认 8）</div>
+    <div class="half">
+      <div><label data-i18n="lblRsdThreshold" for="titer-default-rsd">RSD 阈值 (%)</label><input type="number" autocomplete="off" id="titer-default-rsd" step="0.01" oninput="saveTiterDefaults()" data-i18n-aria-label="ariaTiterDefaultRsd" aria-label="滴定度默认 RSD 阈值"></div>
+      <div><label data-i18n="lblFLowerLimit" for="titer-default-flow">F 下限</label><input type="number" autocomplete="off" id="titer-default-flow" step="0.01" oninput="saveTiterDefaults()" data-i18n-aria-label="ariaTiterDefaultFlow" aria-label="滴定度默认 F 下限"></div>
+      <div><label data-i18n="lblFUpperLimit" for="titer-default-fhigh">F 上限</label><input type="number" autocomplete="off" id="titer-default-fhigh" step="0.01" oninput="saveTiterDefaults()" data-i18n-aria-label="ariaTiterDefaultFhigh" aria-label="滴定度默认 F 上限"></div>
+      <div><label data-i18n="lblParallelsCount" for="titer-default-n">平行份数</label><input type="number" autocomplete="off" id="titer-default-n" step="1" min="3" max="20" oninput="saveTiterDefaults()" data-i18n-aria-label="ariaTiterDefaultN" aria-label="滴定度默认平行份数"></div>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:6px">
+      <button class="btn btn-outline btn-xs" onclick="resetTiterDefaults()" data-i18n="btnResetDefault" data-i18n-aria-label="btnResetDefault">恢复默认</button>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-danger-zone">
+    <h2 id="settings-danger-zone" class="visually-hidden" data-i18n="cardTitleDangerZone"></h2>
+    <div class="card-title" data-i18n="cardTitleDangerZone">危险区</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblDangerZoneDesc">清空历史会丢失所有记录；恢复出厂会清除全部 rsd- 前缀键（不可恢复）</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="clearHistory()" data-i18n="btnClearAllHistory" data-i18n-aria-label="titleClearHistory">🗑️ 清空历史</button>
+      <button class="btn btn-danger btn-sm" onclick="factoryReset()" data-i18n="btnFactoryReset" data-i18n-aria-label="titleFactoryReset">⚠️ 恢复出厂</button>
+    </div>
+    <div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:10px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <label for="backup-interval-input" style="font-size:12px" data-i18n="lblBackupReminderDays">定期备份提醒（天）：</label>
+        <input type="number" autocomplete="off" id="backup-interval-input" min="1" max="365" style="width:80px;padding:6px;border:1.5px solid var(--border);border-radius:6px" oninput="saveBackupInterval()" data-i18n-aria-label="ariaBackupIntervalInput" aria-label="自动备份间隔（天）">
+        <span id="backup-reminder-status" class="fs-11-light" aria-live="polite"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-cloud-sync">
+    <h2 id="settings-cloud-sync" class="visually-hidden" data-i18n="cardTitleCloudSync"></h2>
+    <div class="card-title" data-i18n="cardTitleCloudSync">☁️ Supabase 云同步</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblSyncDesc">填入 URL + Anon Key 后开启多设备同步；本地数据可保留；点击测试连接</div>
+    <div class="half">
+      <div><label data-i18n="lblSupabaseUrl" for="supabase-url-input">Supabase URL</label><input type="text" autocomplete="off" id="supabase-url-input" placeholder="https://xxx.supabase.co" oninput="_saveSupabaseConfig()" style="font-size:13px"></div>
+      <div><label data-i18n="lblSupabaseAnonKey" for="supabase-key-input">Anon Key</label><input type="password" id="supabase-key-input" placeholder="eyJhbGciOi..." oninput="_saveSupabaseConfig()" style="font-size:13px"></div>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-outline btn-xs" onclick="_testSupabaseConnection()" data-i18n="btnTestConnection" data-i18n-aria-label="btnTestConnection">测试连接</button>
+      <span id="supabase-conn-status" class="fs-11-light" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div class="card" aria-labelledby="settings-ocr">
+    <h2 id="settings-ocr" class="visually-hidden" data-i18n="cardTitleOcr"></h2>
+    <div class="card-title" data-i18n="cardTitleOcr">📄 OCR 报告字段抽取</div>
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px" data-i18n="lblOcrDesc">从 PDF 报告自动抽取 RSD / 含量 / 回收率等字段（需启动 OCR 后端）</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <button class="btn btn-outline btn-sm" id="ocr-select-btn" onclick="document.getElementById('ocr-file-input').click()" data-i18n="btnOcrSelectPdf">📄 选择 PDF</button>
+      <button class="btn btn-primary btn-sm" id="ocr-extract-btn" onclick="extractOcrFields()" disabled data-i18n="btnOcrExtract">🔍 抽取字段</button>
+    </div>
+    <input type="file" id="ocr-file-input" accept=".pdf" class="hide" multiple onchange="onOcrFileSelected(event)" data-i18n-aria-label="titleSelectPdfReport" aria-label="选择 PDF 报告文件">
+    <div id="ocr-status" role="status" aria-live="polite" style="font-size:12px;color:var(--text-light);margin-top:4px"></div>
+    <div id="ocr-results" style="margin-top:8px"></div>
+  </div>
+
+</div>
+
+</main>
+
+<script>window.i18n = function(k) { return k; };</script>
+<script src="i18n-zh.js"></script>
+<script src="i18n-en.js"></script>
+<script src="i18n-alert.js"></script>
+<script src="i18n-data.js"></script>
+<script src="helpers-i18n.js"></script>
+<script src="helpers-toast.js"></script>
+<script src="helpers-export.js"></script>
+<script src="helpers-export-comprehensive.js"></script>
+<script src="app.js"></script>
+
+<!-- v54.318 PWA: Service Worker 注册（恢复 v54.297 PWA 功能） -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js')
+    .then(function(reg) {
+      console.log('[SW] registered, scope:', reg.scope);
+      reg.addEventListener('updatefound', function() {
+        var newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', function() {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[SW] new version installed, ready to activate');
+          }
+        });
+      });
+    })
+    .catch(function(err) { console.error('[SW] registration failed:', err); });
+}
+</script>
+
+</body>
+</html>

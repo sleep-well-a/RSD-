@@ -1,0 +1,193 @@
+{
+  "version": "v54.204",
+  "date": "2026-10-09 23:41:14",
+  "passed": 36,
+  "total": 37,
+  "tests": [
+    {
+      "name": "RSD & 含量计算器.html 大小 (108,374)",
+      "ok": true,
+      "detail": "期望 50,000-150,000"
+    },
+    {
+      "name": "styles.css 大小 (32,142)",
+      "ok": true,
+      "detail": "期望 15,000-35,000"
+    },
+    {
+      "name": "app.js 大小 (475,142)",
+      "ok": true,
+      "detail": "期望 300,000-510,000"
+    },
+    {
+      "name": "i18n-zh.js 大小 (61,501)",
+      "ok": true,
+      "detail": "期望 35,000-65,000"
+    },
+    {
+      "name": "i18n-en.js 大小 (61,297)",
+      "ok": true,
+      "detail": "期望 30,000-65,000"
+    },
+    {
+      "name": "i18n-alert.js 大小 (40,053)",
+      "ok": true,
+      "detail": "期望 33,000-42,000"
+    },
+    {
+      "name": "i18n-data.js 大小 (126)",
+      "ok": true,
+      "detail": "期望 50-2,000"
+    },
+    {
+      "name": "zh dict 有 keys (≥300)",
+      "ok": true,
+      "detail": "1309 keys"
+    },
+    {
+      "name": "save key zh/en 正确",
+      "ok": true,
+      "detail": "zh=保存结果, en=Save"
+    },
+    {
+      "name": "i18n-zh.js keys ≥ 1000",
+      "ok": true,
+      "detail": "1310 keys"
+    },
+    {
+      "name": "i18n-en.js keys ≥ 850",
+      "ok": true,
+      "detail": "1309 keys"
+    },
+    {
+      "name": "i18n-alert.js keys ≥ 740",
+      "ok": true,
+      "detail": "802 keys"
+    },
+    {
+      "name": "en 缺失的 key 均有 alertEn 兜底",
+      "ok": false,
+      "detail": "1 个无兜底: ['titleTabRecovery']"
+    },
+    {
+      "name": "HTML data-i18n* key 全部可解析 (424 个)",
+      "ok": true,
+      "detail": "0 个未解析"
+    },
+    {
+      "name": "CSS 包含 :root",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 --primary",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 .header",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 .tab",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 .btn",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 .card",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 body",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CSS 包含 .page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "大括号平衡",
+      "ok": true,
+      "detail": "diff=0"
+    },
+    {
+      "name": "小括号接近平衡",
+      "ok": true,
+      "detail": "diff=58"
+    },
+    {
+      "name": "方括号接近平衡",
+      "ok": true,
+      "detail": "diff=1"
+    },
+    {
+      "name": "JS 包含 i18n 函数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "JS 包含 switchTab 函数",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "JS 包含 _currentLang 变量",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "HTML 加载 (RSD & 含量计算器.html)",
+      "ok": true,
+      "detail": "status=200, type=?"
+    },
+    {
+      "name": "CSS 加载 (styles.css)",
+      "ok": true,
+      "detail": "status=200, type=?"
+    },
+    {
+      "name": "JS 加载 (app.js)",
+      "ok": true,
+      "detail": "status=200, type=?"
+    },
+    {
+      "name": "I18N 加载 (i18n-data.js)",
+      "ok": true,
+      "detail": "status=200, type=?"
+    },
+    {
+      "name": "外部脚本 (13)",
+      "ok": true,
+      "detail": "https:cdn.sheetjs.comxlsx-0.20.3packagedistxlsx.full.min, https:cdndelivr.netnpmchart@4.4.7distchart.umd.min, https:cdndelivr.netnpmhtml2pdf@0.10.2disthtml2pdf.bundle.min, https:cdndelivr.netnpm@supabasesupabase-js@2.45.4distumdsupabase.min, i18n-zh"
+    },
+    {
+      "name": "CSS link 存在",
+      "ok": true,
+      "detail": "styles.css"
+    },
+    {
+      "name": "i18n-data.js 在 app.js 之前加载",
+      "ok": true,
+      "detail": "i18n=101313, app=101529"
+    },
+    {
+      "name": "内联 JS 很小 (<500 chars)",
+      "ok": true,
+      "detail": "40 chars"
+    },
+    {
+      "name": "无 UTF-8 BOM",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

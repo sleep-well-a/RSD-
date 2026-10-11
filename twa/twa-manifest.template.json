@@ -1,0 +1,63 @@
+{
+  "packageId": "com.haizhou.rsdcalc",
+  "host": "REPLACE_WITH_YOUR_DOMAIN",
+  "name": "RSD & 含量计算器",
+  "launcherName": "RSD计算器",
+  "display": "standalone",
+  "themeColor": "#2563eb",
+  "themeColorDark": "#1e3a8a",
+  "navigationColor": "#2563eb",
+  "navigationColorDark": "#1e3a8a",
+  "navigationDividerColor": "#1e40af",
+  "navigationDividerColorDark": "#1e3a8a",
+  "backgroundColor": "#f8fafc",
+  "enableNotifications": false,
+  "startUrl": "/RSD%20%26%20%E5%90%AB%E9%87%8F%E8%AE%A1%E7%AE%97%E5%99%A8_%E6%B5%81%E5%8A%A8%E7%9B%B8%E7%89%88_v54.322.html",
+  "iconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-512.png",
+  "maskableIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "54.322",
+  "appVersionCode": 54322,
+  "shortcuts": [
+    {
+      "name": "RSD 统计",
+      "shortName": "统计",
+      "url": "/RSD%20%26%20%E5%90%AB%E9%87%8F%E8%AE%A1%E7%AE%97%E5%99%A8_%E6%B5%81%E5%8A%A8%E7%9B%B8%E7%89%88_v54.322.html#page-stats",
+      "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-192.png"
+    },
+    {
+      "name": "含量回收率",
+      "shortName": "回收率",
+      "url": "/RSD%20%26%20%E5%90%AB%E9%87%8F%E8%AE%A1%E7%AE%97%E5%99%A8_%E6%B5%81%E5%8A%A8%E7%9B%B8%E7%89%88_v54.322.html#page-recovery",
+      "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-192.png"
+    },
+    {
+      "name": "流动相配制",
+      "shortName": "流动相",
+      "url": "/RSD%20%26%20%E5%90%AB%E9%87%8F%E8%AE%A1%E7%AE%97%E5%99%A8_%E6%B5%81%E5%8A%A8%E7%9B%B8%E7%89%88_v54.322.html#page-mobilephase",
+      "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://REPLACE_WITH_YOUR_DOMAIN/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://REPLACE_WITH_YOUR_DOMAIN/",
+  "minSdkVersion": 21,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "54.322",
+  "launcherIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN/icons/icon-512.png"
+}

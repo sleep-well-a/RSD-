@@ -1,0 +1,56 @@
+# RSD & 含量计算器 — .gitignore（v54.324 + v54.335 增强）
+# 用于 GitHub Pages 部署（排除大文件 / 生成物 / 临时文件）
+
+# 备份（体积大，本地保留即可）
+_backups/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+tests/node_modules/
+package-lock.json
+
+# 测试日志（临时产物）
+_test_run_*.log
+
+# 生成的部署包（由 build_github_pages.py 重建，不必提交）
+deploy/
+
+# v54.335：历史流动相版（保留最新 v54.334，其余不入仓库）
+"RSD & 含量计算器_流动相版.html"
+"RSD & 含量计算器_流动相版_v54.*.html"
+# 但保留最新：
+!RSD & 含量计算器_流动相版_v54.334.html
+# 保留无版本号的 dev 版（如果存在）
+!RSD & 含量计算器_流动相版.html
+
+# dev 版 dev HTML（v54.335 不上传，需要 git 历史的话保留）
+# 已上传 root 目录的 v54.334 dev 版作为备份（可选）
+# 不上传"开发中"未发布版本
+"RSD & 含量计算器_流动相版_v54.335.html"
+
+# v54.335：release/ 历史版本（只保留最新 N 个）
+release/
+!release/v54.334/
+
+# TWA 构建产物（keystore 含私钥，绝不能提交！）
+twa/android.keystore
+twa/*.keystore
+twa/*.jks
+twa/app-release*.apk
+twa/app-release*.aab
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+desktop.ini
+
+# git credentials（绝对不能提交）
+.git-credentials

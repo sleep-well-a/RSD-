@@ -1,0 +1,7 @@
+模板: C:\Users\sleep well\.claude\skills\qp-to-qr-poc\references\templates\demo_jinja_template.docx
+输出: F:\自制软件\tools\_docxtpl_demo\output.docx
+
+[PASS] 场景 1: 含 notes (条件段应保留)
+[PASS] 场景 2: 不含 notes (条件段应隐藏)
+
+PASS: 2 / 2

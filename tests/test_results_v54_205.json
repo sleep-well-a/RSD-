@@ -1,0 +1,113 @@
+{
+  "version": "v54.205",
+  "date": "2026-10-09 23:41:16",
+  "passed": 21,
+  "total": 21,
+  "tests": [
+    {
+      "name": "zh dict 加载 (1307 keys)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en dict 加载 (1307 keys)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "alertEn dict 加载 (800 keys)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "zh 是 en+alertEn 的超集 (zh-only ≤ 10)",
+      "ok": true,
+      "detail": "extra (1): ['titleTabRecovery']"
+    },
+    {
+      "name": "zh 覆盖 en+alertEn (missing ≤ 5)",
+      "ok": true,
+      "detail": "missing (2): ['cvReportNorm', 'toast_copiedFmt']"
+    },
+    {
+      "name": "zh dict 包含 alert 子字典 (best effort)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "zh 无空 value (0)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "en 无空 value (0)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "data-i18n 属性 (411)",
+      "ok": true,
+      "detail": "≥200"
+    },
+    {
+      "name": "data-i18n-placeholder 属性 (11)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "data-i18n-title 属性 (16)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "页面元素 (7)",
+      "ok": true,
+      "detail": "['calc', 'history', 'mobile', 'recovery', 'settings', 'special', 'stats']"
+    },
+    {
+      "name": "CSS classes 使用率 ≥40%",
+      "ok": true,
+      "detail": "63/134"
+    },
+    {
+      "name": "HTML 加载 <500ms",
+      "ok": true,
+      "detail": "65.7ms"
+    },
+    {
+      "name": "CSS 加载 <500ms",
+      "ok": true,
+      "detail": "3.0ms"
+    },
+    {
+      "name": "JS 加载 <500ms",
+      "ok": true,
+      "detail": "27.7ms"
+    },
+    {
+      "name": "I18N-zh 加载 <500ms",
+      "ok": true,
+      "detail": "16.6ms"
+    },
+    {
+      "name": "I18N-en 加载 <500ms",
+      "ok": true,
+      "detail": "14.9ms"
+    },
+    {
+      "name": "I18N-alert 加载 <500ms",
+      "ok": true,
+      "detail": "16.1ms"
+    },
+    {
+      "name": "I18N-loader 加载 <500ms",
+      "ok": true,
+      "detail": "14.1ms"
+    },
+    {
+      "name": "全部 7 个文件 <2s",
+      "ok": true,
+      "detail": "158.0ms"
+    }
+  ]
+}

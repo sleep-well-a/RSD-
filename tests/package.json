@@ -1,0 +1,21 @@
+{
+  "name": "tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "e2e_puppeteer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "axe-core": "^4.13.0",
+    "chartjs-plugin-a11y-legend": "^0.2.2",
+    "eslint": "^10.12.0",
+    "html-validate": "^11.16.1",
+    "pdf-a11y": "^0.2.2",
+    "puppeteer": "^25.12.0"
+  }
+}

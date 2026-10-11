@@ -1,0 +1,65 @@
+{
+  "name": "RSD & 含量计算器 v54.332 - 药学分析专用",
+  "short_name": "RSD计算器",
+  "description": "药品质量分析专用 RSD、含量、回收率、流动相配制计算工具，支持离线使用（PWA）",
+  "start_url": "./RSD & 含量计算器_流动相版_v54.332.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": [
+    "utilities",
+    "medical",
+    "productivity"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%232563eb' width='192' height='192' rx='32'/%3E%3Ctext x='96' y='128' font-size='96' text-anchor='middle' fill='white' font-family='system-ui'%3E%CE%A3%3C/text%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "RSD 统计",
+      "short_name": "统计",
+      "url": "./RSD & 含量计算器_流动相版_v54.332.html#page-stats",
+      "description": "快速进入 RSD/均值/标准差统计计算"
+    },
+    {
+      "name": "含量回收率",
+      "short_name": "回收率",
+      "url": "./RSD & 含量计算器_流动相版_v54.332.html#page-recovery",
+      "description": "快速进入归一化/外标/内标回收率计算"
+    },
+    {
+      "name": "流动相配制",
+      "short_name": "流动相",
+      "url": "./RSD & 含量计算器_流动相版_v54.332.html#page-mobilephase",
+      "description": "快速进入 HPLC 流动相配方配制"
+    }
+  ]
+}

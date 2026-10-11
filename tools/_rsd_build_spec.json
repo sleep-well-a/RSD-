@@ -1,0 +1,63 @@
+{
+  "template": "简约商务网络科技风PPT模板.pptx",
+  "title": "RSD & 含量计算器 v54.284",
+  "subtitle": "药品质量标准研究的瑞士军刀",
+  "keep_slides": [0, 1, 2, 3, 5, 7, 9, 13, 14, 16, 18, 21, 26, 27],
+  "replacements": {
+    "0": [
+      {"shape_id": 2, "text": "RSD & 含量计算器 v54.284\n药品质量标准研究的瑞士军刀"}
+    ],
+    "1": [
+      {"shape_id": 18, "text": "目录"},
+      {"shape_id": 23, "text": "项目概览"},
+      {"shape_id": 28, "text": "PROJECT OVERVIEW"}
+    ],
+    "2": [
+      {"shape_id": 13, "text": "8 大功能模块"},
+      {"shape_id": 14, "text": "技术特性"},
+      {"shape_id": 15, "text": "工具链覆盖"}
+    ],
+    "3": [
+      {"shape_id": 2, "text": "项目简介"}
+    ],
+    "5": [
+      {"shape_id": 2, "text": "技术架构"},
+      {"shape_id": 8, "text": "RSD 是相对标准偏差计算工具，覆盖 8 大药检模块：含量计算、回收率、滴定度、干燥失重、炽灼残渣、含量均匀度、溶出度、标准曲线。单文件 PWA（HTML/CSS/JS 无外部依赖），localStorage 200 条历史记录，SheetJS CDN 导出 Excel。"}
+    ],
+    "7": [
+      {"shape_id": 2, "text": "质量保证"},
+      {"shape_id": 3, "text": "Function use strict 沙箱求值"},
+      {"shape_id": 4, "text": "焦点保护避免输入卡顿"}
+    ],
+    "9": [
+      {"shape_id": 2, "text": "用户使命"},
+      {"shape_id": 3, "text": "为化学分析师提供瑞士军刀"},
+      {"shape_id": 5, "text": "v54.284 工具链覆盖 6 类历史反复问题：boolean 反转、i18n 硬编码、HTML typo、a11y 陷阱、备份时机、改动失控"}
+    ],
+    "13": [
+      {"shape_id": 2, "text": "技术背景"}
+    ],
+    "14": [
+      {"shape_id": 2, "text": "核心特性"},
+      {"shape_id": 10, "text": "53 / 58 PASS — 3 次连续 EXIT=0"}
+    ],
+    "16": [
+      {"shape_id": 2, "text": "扩展能力"}
+    ],
+    "18": [
+      {"shape_id": 2, "text": "应用规模"}
+    ],
+    "21": [
+      {"shape_id": 2, "text": "工具链成果"},
+      {"shape_id": 5, "text": "Puppeteer + axe-core"},
+      {"shape_id": 6, "text": "WCAG 2.0 AA 自动验证，零违规"}
+    ],
+    "26": [
+      {"shape_id": 2, "text": "v54.284 路线图"}
+    ],
+    "27": [
+      {"shape_id": 7, "text": "感谢您的观看"},
+      {"shape_id": 8, "text": "THANK YOU"}
+    ]
+  }
+}
